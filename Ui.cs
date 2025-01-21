@@ -205,9 +205,8 @@ namespace LumaflyKnight
             return result;
         }
 
-        public void UpdateStats(int hits, int count) {
-            _roomCount.GetComponent<TextMesh>().text = hits + "/" + count;
-            //_globalCount.GetComponent<TextMesh>().text = "aboba2";
+        public void UpdateStats(int hits, int count, int totalHits, int totalCount) {
+            _roomCount.GetComponent<TextMesh>().text = hits + "/" + count + " of " + totalHits + "/" + totalCount;
         }
         public static Ui getUi() {
             GameObject geoCounter = GameManager.instance?.hero_ctrl?.geoCounter?.gameObject;

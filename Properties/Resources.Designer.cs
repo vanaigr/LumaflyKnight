@@ -59,5 +59,14 @@ namespace LumaflyKnight.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {&quot;Pre_Menu_Intro&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Menu_Title&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Quit_To_Menu&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;BetaEnd&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Knight_Pickup&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Opening_Sequence&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Tutorial_01&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Town&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Cinematic_Stag_travel&quot;:{&quot;lamps&quot;:{},&quot;enemies&quot;:{}},&quot;Room_Town_Stag_Station&quot;:{&quot;lamps&quot;:{&quot;/station_pole/Stag_Pole_Tall_Break (2)/lamp_bug_escape (7)&quot;:{&quot;deletePath&quot;:&quot;/station_pole/Stag_Pole_Tall_Br [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string items {
+            get {
+                return ResourceManager.GetString("items", resourceCulture);
+            }
+        }
     }
 }
