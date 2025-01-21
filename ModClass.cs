@@ -466,6 +466,8 @@ namespace LumaflyKnight
         }
 
         IEnumerator doStuff() {
+            /*
+            // Do at your own risk! Grans some achievements (e.g. speedrun).
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
             var scenes = new Scene[sceneCount];
             Log("there's " + sceneCount + " scenes.");
@@ -487,9 +489,9 @@ namespace LumaflyKnight
             }
 
             var resS = Newtonsoft.Json.JsonConvert.SerializeObject(result);
-            File.WriteAllText("C:\\Users\\Artem\\Downloads\\HKMODS\\LumaflyKnight\\Resources\\items.txt", resS);
+            File.WriteAllText(path, resS);
 
-            UnityEngine.Application.Quit(0);
+            UnityEngine.Application.Quit(0);*/
 
             /*var l = new List<string>();
             l.Add("Crossroads_27");
