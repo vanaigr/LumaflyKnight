@@ -16,6 +16,8 @@ using System.IO;
 using Newtonsoft.Json;
 using IL.InControl;
 using UnityEngine.Assertions.Must;
+using GlobalEnums;
+using static GameManager;
 
 namespace LumaflyKnight
 {
@@ -45,7 +47,7 @@ namespace LumaflyKnight
         //    Instance = this;
         //}
 
-        void reportAll(GameObject it, string indent)
+        public void reportAll(GameObject it, string indent)
         {
             Log(indent + "name: " + it.name + ", active=" + it.activeSelf + ", " + it.activeInHierarchy);
             Log(indent + " components:");
@@ -59,7 +61,7 @@ namespace LumaflyKnight
             }
         }
 
-        void reportAllCurrentScene() {
+        public void reportAllCurrentScene() {
             var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
                     var rs = s.GetRootGameObjects();
                     for(var i = 0; i < rs.Length; i++) {
@@ -67,13 +69,13 @@ namespace LumaflyKnight
                     }
         }
 
-        class ContainLumafly {
+        public class ContainLumafly {
             public List<GameObject> lamps;
             public List<GameObject> enemies;
             //public List<GameObject> unbreakableLamps;
         }
 
-        void addAll(GameObject it, ContainLumafly cl) {
+        public void addAll(GameObject it, ContainLumafly cl) {
             var s = (string name) => it.name.StartsWith(name);
 
             if(s("lamp_bug_escape")) {
@@ -94,19 +96,20 @@ namespace LumaflyKnight
             }
         }
 
-        static FieldInfo breakableRemnantParts;
+        public static FieldInfo breakableRemnantParts;
 
-        GameObject[] getRemnantParts(Breakable it) {
+        public GameObject[] getRemnantParts(Breakable it) {
             if(breakableRemnantParts == null) {
                 breakableRemnantParts = typeof(Breakable).GetField("debrisParts", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             }
             return ((List<GameObject>)breakableRemnantParts.GetValue(it)).ToArray();
         }
 
-        GameObject isBreakable(GameObject it, HashSet<GameObject> possibleRemnants) {
+        public bool canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants, out GameObject root) {
             var p = it.transform.parent;
-            if(p == null) { 
-                return null;
+            if(p == null) {
+                root = null;
+                return false;
             }
 
             possibleRemnants.Add(it);
@@ -119,14 +122,20 @@ namespace LumaflyKnight
                     if (possibleRemnants.Contains(list[i])) break;
                 }
                 
-                if(i != list.Length) {
-                    return p.gameObject.activeInHierarchy ? p.gameObject : null;
+                if(i != list.Length && p.gameObject.activeInHierarchy) {
+                    root = p.gameObject;
+                    return true;
                 }
 
-                return null;
+                root = null;
+                return false;
+            }
+            else if(p.gameObject.name.StartsWith("Chest")) {
+                root = null;
+                return true;
             }
             else {
-                return isBreakable(p.gameObject, possibleRemnants);
+                return canReleaseLumafly(p.gameObject, possibleRemnants, out root);
             }
         }
 
@@ -210,10 +219,10 @@ namespace LumaflyKnight
             yield break;
         }*/
 
-         MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-         FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+         public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-        GameObject findInHierarchy(GameObject o, string[] names, int beginI) {
+        public GameObject findInHierarchy(GameObject o, string[] names, int beginI) {
             if(beginI >= names.Length) return o;
             string name = names[beginI];
             var ct = o.transform.Find(name);
@@ -222,7 +231,7 @@ namespace LumaflyKnight
         }
 
         // 1. Searches inactive as well. 2. Can specify scene
-        GameObject find2(Scene s, string path) {
+        public GameObject find2(Scene s, string path) {
             if(path[0] != '/') throw new Exception("Not absolute path");
             var names = path.Split('/');
             if(names.Length <= 1) return null;
@@ -233,7 +242,43 @@ namespace LumaflyKnight
             return null;
         }
 
-        IEnumerator prepareScene() { 
+        //IEnumerator go(int sceneBuildI) {
+        public IEnumerator go(string name) {
+            //UnityEngine.SceneManagement.SceneManager.LoadScene(sceneBuildI);
+            //yield return null;
+            //var s = UnityEngine.SceneManagement.SceneManager.GetSceneByBuildIndex(sceneBuildI);
+
+            /*var dest = new GameManager.SceneLoadInfo {
+                IsFirstLevelForPlayer = false,
+                //SceneName = s.name,
+                SceneName = name,
+                HeroLeaveDirection = GatePosition.door,
+                EntryGateName = null,
+                EntryDelay = 0,
+                PreventCameraFadeOut = true,
+                WaitForSceneTransitionCameraFade = false,
+                Visualization = SceneLoadVisualizations.Default,
+                AlwaysUnloadUnusedAssets = false,
+                forceWaitFetch = false,
+            };
+            GameManager.instance.BeginSceneTransition(dest);*/
+
+            GameManager.instance.ChangeToScene(name, "", 0);
+
+            /*var hc = GameManager.instance.hero_ctrl;
+            if(hc != null) {
+            var tv = typeof(HeroController).GetField("transition_vel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                tv.SetValue(hc, Vector2.zero);
+                
+                var cs = typeof(HeroController).GetField("cState", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var og = typeof(HeroControllerStates).GetField("onGround", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                og.SetValue(cs.GetValue(hc), true);
+            }*/
+
+            yield break;
+        }
+
+        public IEnumerator prepareScene() { 
             var s0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var s0name = s0.name;
             yield return null;
@@ -262,10 +307,12 @@ namespace LumaflyKnight
                         hitCount++;
                         var obj = find2(s, i);
                         obj.SetActive(false);
-                        var pobj = find2(s, d.deletePath);
-                        var pb = pobj.GetComponent<Breakable>();
-                        isBroken.SetValue(pb, true);
-                        partsActivation.Invoke(pb, new object[]{ true });
+                        if(d.brk != "") {
+                            var pobj = find2(s, d.brk);
+                            var pb = pobj.GetComponent<Breakable>();
+                            isBroken.SetValue(pb, true);
+                            partsActivation.Invoke(pb, new object[]{ true });
+                        }
                     }
                     else { 
                         var obj = find2(s, i);
@@ -320,7 +367,7 @@ namespace LumaflyKnight
             return path;
         }
 
-        SceneObjects saveSceneObjects(Scene s) {
+        public SceneObjects saveSceneObjects(Scene s) {
             var res = new SceneObjects();
 
             var lumas = new ContainLumafly { 
@@ -336,9 +383,10 @@ namespace LumaflyKnight
 
             for(var i = 0; i < lumas.lamps.Count; i++) {
                 var l = lumas.lamps[i];
-                var root = isBreakable(l, new HashSet<GameObject>());
-                if(root != null) { 
-                    res.lamps.Add(path(l), new LampData { deletePath = path(root) });
+                GameObject root;
+                if(canReleaseLumafly(l, new HashSet<GameObject>(), out root)) { 
+                    // chests remember their state, so we will do nothing for them.
+                    res.lamps.Add(path(l), new LampData { brk = root == null ? "" : path(root) });
                 }
             }
 
@@ -350,21 +398,21 @@ namespace LumaflyKnight
             return res;
         }
 
-        private struct LampData {
-            public string deletePath;
+        public  struct LampData {
+            public string brk; // path to GameObject with Breakable. Empty string if none
         }
 
-        private struct EnemyData {
+        public  struct EnemyData {
         }
 
-        private class SceneObjects {
+        public  class SceneObjects {
             public Dictionary<string, LampData> lamps = new Dictionary<string, LampData>();
             public Dictionary<string, EnemyData> enemies = new Dictionary<string, EnemyData>();
         }
 
-        Dictionary<string, SceneObjects> items;
+        public Dictionary<string, SceneObjects> items;
 
-        private struct Data {
+        public  struct Data {
             public int totalHit;
             public int totalCount;
 
@@ -434,7 +482,7 @@ namespace LumaflyKnight
             }
         }
 
-        private Data data;
+        public  Data data;
 
         public void OnLoadLocal(DoneItems s) {
             data.items = s;
@@ -458,14 +506,14 @@ namespace LumaflyKnight
             }
         }
 
-        void processAll(GameObject it, Action<GameObject> action) {
+        public void processAll(GameObject it, Action<GameObject> action) {
             action(it);
             for(int i = 0; i < it.transform.childCount; i++) {
                 processAll(it.transform.GetChild(i).gameObject, action);
             }
         }
 
-        IEnumerator doStuff() {
+        public IEnumerator doStuff() {
             /*
             // Do at your own risk! Grans some achievements (e.g. speedrun).
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
@@ -518,48 +566,7 @@ namespace LumaflyKnight
             RegisterUi.add();
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(prepareScene());
 
-            ModHooks.HeroUpdateHook += () => {
-                GameObject hero = GameManager.instance?.hero_ctrl?.gameObject;
-                if (hero != null && Input.GetKeyDown(KeyCode.Q)) {
-                    var list = new List<Entry>();
-
-                    Action<GameObject> insert = (newObj) => {
-                        var diff = (newObj.gameObject.transform.position - hero.transform.position);
-                        var sqDist = diff.sqrMagnitude;
-
-                        var newEntry = new Entry(sqDist, newObj);
-                        int index = list.BinarySearch(newEntry, Comparer<Entry>.Create((a, b) => a.SqDist.CompareTo(b.SqDist)));
-
-                        // If not found, BinarySearch returns a negative index that is the bitwise complement of the next larger element's index
-                        if (index < 0) list.Add(newEntry);
-                        else list.Insert(index, newEntry);
-
-                        if(list.Count > 100) list.RemoveAt(list.Count - 1);
-                    };
-
-                    var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                    var rs = s.GetRootGameObjects();
-                    for(var i = 0; i < rs.Length; i++) {
-                        processAll(rs[i], insert);
-                    }
-
-                    Log("Objects near the player:");
-                    for(var i = 0; i < list.Count; i++) {
-                        var it = list[i].Obj;
-                        Log(i + ". name: " + path(it));
-                        Log(" components:");
-                        var cs = it.GetComponents<Component>();
-                        for(int j = 0; j < cs.Length; j++) {
-                            Log("  " + cs[j].GetType().Name);
-                        }
-                        Log("");
-                    }
-                }
-                if (hero != null && Input.GetKeyDown(KeyCode.P)) {
-                    reportAllCurrentScene();
-                }
-            };
-
+            GameManager.instance.gameObject.AddComponent<ModUpdate>();
 
             //UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(updateCount());
 
@@ -582,6 +589,115 @@ namespace LumaflyKnight
         public event EventHandler onEnable;
         public void OnEnable() {
             onEnable?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    class ModUpdate : MonoBehaviour {
+        int curRoomI = 0;
+        string[] scenes = LumaflyKnight.Instance.items.Keys.ToArray();
+        
+        public void Update() {
+            GameObject hero = GameManager.instance?.hero_ctrl?.gameObject;
+            if (Input.GetKeyDown(KeyCode.Q)) {
+               var list = new List<LumaflyKnight.Entry>();
+
+               Action<GameObject> insert = (newObj) => {
+                    var diff = (newObj.gameObject.transform.position - hero.transform.position);
+                    var sqDist = diff.sqrMagnitude;
+
+                    var newEntry = new LumaflyKnight.Entry(sqDist, newObj);
+                    int index = list.BinarySearch(newEntry, Comparer<LumaflyKnight.Entry>.Create((a, b) => a.SqDist.CompareTo(b.SqDist)));
+
+                    // If not found, BinarySearch returns a negative index that is the bitwise complement of the next larger element's index
+                    if (index < 0) list.Add(newEntry);
+                    else list.Insert(index, newEntry);
+
+                    if(list.Count > 100) list.RemoveAt(list.Count - 1);
+               };
+
+               var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+               var rs = s.GetRootGameObjects();
+               for(var i = 0; i < rs.Length; i++) {
+                    LumaflyKnight.Instance.processAll(rs[i], insert);
+               }
+
+               LumaflyKnight.Instance.Log("Objects near the player:");
+               for(var i = 0; i < list.Count; i++) {
+                    var it = list[i].Obj;
+                    LumaflyKnight.Instance.Log(i + ". name: " + LumaflyKnight.path(it));
+                    LumaflyKnight.Instance.Log(" components:");
+                    var cs = it.GetComponents<Component>();
+                    for(int j = 0; j < cs.Length; j++) {
+                        LumaflyKnight.Instance.Log("  " + cs[j].GetType().Name);
+                    }
+                    LumaflyKnight.Instance.Log("");
+               }
+            }
+
+            if (Input.GetKeyDown(KeyCode.P)) {
+                LumaflyKnight.Instance.reportAllCurrentScene();
+            }
+            if (Input.GetKeyDown(KeyCode.K)) {
+                try {
+                for(; curRoomI > 0; curRoomI--) {
+                    var k = scenes[curRoomI];
+                    DoneSceneObjects it; 
+                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+                    var or = LumaflyKnight.Instance.items[k];
+                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+                        break;
+                    }
+                }
+                //curRoomI = Math.Max(curRoomI - 1, 0);
+                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+                }
+                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+
+            }
+            if(Input.GetKeyDown(KeyCode.L)) {
+                try { 
+                for(; curRoomI < scenes.Length - 1; curRoomI++) {
+                    var k = scenes[curRoomI];
+                    DoneSceneObjects it; 
+                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+                    var or = LumaflyKnight.Instance.items[k];
+                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+                        break;
+                    }
+                }
+                //curRoomI = Math.Min(curRoomI + 1, scenes.Length);
+                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+                    }
+                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            }
+            if(Input.GetKeyDown(KeyCode.J)) {
+                try { 
+                    var list = new List<LumaflyKnight.Entry>();
+
+                   Action<GameObject> insert = (newObj) => {
+                        var diff = (newObj.gameObject.transform.position - hero.transform.position);
+                        var sqDist = diff.sqrMagnitude;
+
+                        var newEntry = new LumaflyKnight.Entry(sqDist, newObj);
+                        int index = list.BinarySearch(newEntry, Comparer<LumaflyKnight.Entry>.Create((a, b) => a.SqDist.CompareTo(b.SqDist)));
+
+                        // If not found, BinarySearch returns a negative index that is the bitwise complement of the next larger element's index
+                        if (index < 0) list.Add(newEntry);
+                        else list.Insert(index, newEntry);
+
+                        if(list.Count > 100) list.RemoveAt(list.Count - 1);
+                   };
+
+                   var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                   var rs = s.GetRootGameObjects();
+                   for(var i = 0; i < rs.Length; i++) {
+                        LumaflyKnight.Instance.processAll(rs[i], insert);
+                   }
+
+                   hero.transform.position = list[Math.Min(list.Count - 1, 10)].Obj.transform.position;
+                }
+                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            }
         }
     }
 }
