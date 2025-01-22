@@ -30,7 +30,11 @@ namespace LumaflyKnight
         public Dictionary<string, DoneSceneObjects> items = new Dictionary<string, DoneSceneObjects>();
     }
 
-    public class LumaflyKnight : Mod, ILocalSettings<DoneItems>
+    public class GlobalSettings {
+        public bool permanentLumaflyRelease = true;
+    }
+
+    public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings>
     {
         internal static LumaflyKnight Instance;
 
@@ -47,7 +51,7 @@ namespace LumaflyKnight
         //    Instance = this;
         //}
 
-        public void reportAll(GameObject it, string indent)
+        /*public void reportAll(GameObject it, string indent)
         {
             Log(indent + "name: " + it.name + ", active=" + it.activeSelf + ", " + it.activeInHierarchy);
             Log(indent + " components:");
@@ -67,7 +71,7 @@ namespace LumaflyKnight
                     for(var i = 0; i < rs.Length; i++) {
                         reportAll(rs[i], "");
                     }
-        }
+        }*/
 
         public class ContainLumafly {
             public List<GameObject> lamps;
@@ -139,86 +143,6 @@ namespace LumaflyKnight
             }
         }
 
-        /*IEnumerator updateCount() {                
-            var s0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            var s0name = s0.name;
-            yield return null;
-            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            if(s != s0) {
-                Log("Should not happen 1: " + s0name + " " + s.name);
-                yield break;
-            }
-            Log("Room name: " + s.name + " " + s.buildIndex);
-
-            try { 
-                var rs = s.GetRootGameObjects();
-                var lumas = new ContainLumafly { 
-                    enemies = new List<GameObject>(), 
-                    lamps = new List<GameObject>(),
-                    unbreakableLamps = new List<GameObject>(),
-                };
-                for(var i = 0; i < rs.Length; i++) {
-                    addAll(rs[i], lumas);
-                }
-                Log("Count is " + lumas.lamps.Count + " " + lumas.enemies.Count);
-
-                var hitCount = 0;
-                var possibleCount = 0;
-
-                for(var i = 0; i < lumas.lamps.Count; i++) {
-                    var l = lumas.lamps[i];
-                    try {
-                        Log("checking " + i);
-                        if(isBreakable(l, new HashSet<GameObject>())) { 
-                            var u = l.AddComponent<UpdateWhenActive>();
-                            u.onEnable += (_, _) => {
-                                hitCount++;
-                                Ui.getUi()?.UpdateStats(hitCount, possibleCount);
-                            };
-                            possibleCount++;
-                        }
-                        else {
-                            lumas.unbreakableLamps.Add(l);
-                        }
-                    }
-                    catch(Exception e) {
-                        LogError("Died on lamp " + s.name + " " + l.name + ": " + e);
-                    }
-                }
-
-                for(var i = 0; i < lumas.enemies.Count; i++) {
-                    var l = lumas.enemies[i];
-                    try {
-                        l.GetComponent<HealthManager>().OnDeath += () => {
-                            hitCount++;
-                                Ui.getUi()?.UpdateStats(hitCount, possibleCount);
-                        };
-                            possibleCount++;
-                    }
-                    catch(Exception e) {
-                        LogError("Died on enemy " + s.name + " " + l.name + ": " + e);
-                    }
-                }
-
-                for(var i = 0; i < lumas.unbreakableLamps.Count; i++) {
-                    var l = lumas.unbreakableLamps[i];
-                    try {
-                        l.transform.localScale = l.transform.localScale * 3;
-                    }
-                    catch(Exception e) {
-                        LogError("Died on unbreakable " + s.name + " " + l.name + ": " + e);
-                    }
-                }
-
-                Ui.getUi()?.UpdateStats(hitCount, possibleCount);
-            }
-            catch(Exception e) {
-                LogError("Counting died: " + e);
-            }
-
-            yield break;
-        }*/
-
          public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
          public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
@@ -240,42 +164,6 @@ namespace LumaflyKnight
                 if(r.name == names[1]) return findInHierarchy(r, names, 2);
             }
             return null;
-        }
-
-        //IEnumerator go(int sceneBuildI) {
-        public IEnumerator go(string name) {
-            //UnityEngine.SceneManagement.SceneManager.LoadScene(sceneBuildI);
-            //yield return null;
-            //var s = UnityEngine.SceneManagement.SceneManager.GetSceneByBuildIndex(sceneBuildI);
-
-            /*var dest = new GameManager.SceneLoadInfo {
-                IsFirstLevelForPlayer = false,
-                //SceneName = s.name,
-                SceneName = name,
-                HeroLeaveDirection = GatePosition.door,
-                EntryGateName = null,
-                EntryDelay = 0,
-                PreventCameraFadeOut = true,
-                WaitForSceneTransitionCameraFade = false,
-                Visualization = SceneLoadVisualizations.Default,
-                AlwaysUnloadUnusedAssets = false,
-                forceWaitFetch = false,
-            };
-            GameManager.instance.BeginSceneTransition(dest);*/
-
-            GameManager.instance.ChangeToScene(name, "", 0);
-
-            /*var hc = GameManager.instance.hero_ctrl;
-            if(hc != null) {
-            var tv = typeof(HeroController).GetField("transition_vel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                tv.SetValue(hc, Vector2.zero);
-                
-                var cs = typeof(HeroController).GetField("cState", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                var og = typeof(HeroControllerStates).GetField("onGround", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                og.SetValue(cs.GetValue(hc), true);
-            }*/
-
-            yield break;
         }
 
         public IEnumerator prepareScene() { 
@@ -305,13 +193,15 @@ namespace LumaflyKnight
                 try {
                     if(data.hasLamp(sname, i)) {
                         hitCount++;
-                        var obj = find2(s, i);
-                        obj.SetActive(false);
-                        if(d.brk != "") {
-                            var pobj = find2(s, d.brk);
-                            var pb = pobj.GetComponent<Breakable>();
-                            isBroken.SetValue(pb, true);
-                            partsActivation.Invoke(pb, new object[]{ true });
+                        if(globalSettings.permanentLumaflyRelease) {
+                            var obj = find2(s, i);
+                            obj.SetActive(false);
+                            if(d.brk != "") {
+                                var pobj = find2(s, d.brk);
+                                var pb = pobj.GetComponent<Breakable>();
+                                isBroken.SetValue(pb, true);
+                                partsActivation.Invoke(pb, new object[]{ true });
+                            }
                         }
                     }
                     else { 
@@ -327,7 +217,6 @@ namespace LumaflyKnight
                 }
                 catch(Exception e) {
                     LogError("Died on lamp " + s.name + " " + i + ": " + e);
-                    reportAllCurrentScene();
                 }
             }
 
@@ -337,8 +226,10 @@ namespace LumaflyKnight
                 try {
                     if(data.hasEnemy(sname, i)) {
                         hitCount++;
-                        var obj = find2(s, i);
-                        obj.SetActive(false);
+                        if(globalSettings.permanentLumaflyRelease) {
+                            var obj = find2(s, i);
+                            obj.SetActive(false);
+                        }
                     }
                     else { 
                         var obj = find2(s, i);
@@ -367,7 +258,7 @@ namespace LumaflyKnight
             return path;
         }
 
-        public SceneObjects saveSceneObjects(Scene s) {
+        /*public SceneObjects saveSceneObjects(Scene s) {
             var res = new SceneObjects();
 
             var lumas = new ContainLumafly { 
@@ -396,7 +287,7 @@ namespace LumaflyKnight
             }
 
             return res;
-        }
+        }*/
 
         public  struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
@@ -412,7 +303,7 @@ namespace LumaflyKnight
 
         public Dictionary<string, SceneObjects> items;
 
-        public  struct Data {
+        public struct Data {
             public int totalHit;
             public int totalCount;
 
@@ -482,7 +373,7 @@ namespace LumaflyKnight
             }
         }
 
-        public  Data data;
+        public Data data;
 
         public void OnLoadLocal(DoneItems s) {
             data.items = s;
@@ -494,6 +385,16 @@ namespace LumaflyKnight
             data.totalHit = toalHit;
         }
         public DoneItems OnSaveLocal() => data.items;
+
+        public GlobalSettings globalSettings = new GlobalSettings();
+
+       public void OnLoadGlobal(GlobalSettings s) {
+            globalSettings = s;
+        }
+
+        public GlobalSettings OnSaveGlobal() {
+            return globalSettings;
+        }
 
         public struct Entry {
             public float SqDist;
@@ -512,6 +413,8 @@ namespace LumaflyKnight
                 processAll(it.transform.GetChild(i).gameObject, action);
             }
         }
+
+         public override string GetVersion() => "v1";
 
         public IEnumerator doStuff() {
             /*
@@ -562,13 +465,11 @@ namespace LumaflyKnight
                 totalCount += it.Value.lamps.Count;
                 totalCount += it.Value.enemies.Count;
             }
-            this.data = new Data{ totalHit = 0, totalCount = totalCount };
+            this.data.totalCount = totalCount;
             RegisterUi.add();
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(prepareScene());
 
-            GameManager.instance.gameObject.AddComponent<ModUpdate>();
-
-            //UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(updateCount());
+            //GameManager.instance.gameObject.AddComponent<ModUpdate>();
 
             yield break;
         }
@@ -578,7 +479,6 @@ namespace LumaflyKnight
             Log("Initializing");
 
             LumaflyKnight.Instance = this;
-
             GameManager.instance.StartCoroutine(doStuff());
 
             Log("Initialized");
@@ -592,7 +492,7 @@ namespace LumaflyKnight
         }
     }
 
-    class ModUpdate : MonoBehaviour {
+    /*class ModUpdate : MonoBehaviour {
         int curRoomI = 0;
         string[] scenes = LumaflyKnight.Instance.items.Keys.ToArray();
         
@@ -698,6 +598,85 @@ namespace LumaflyKnight
                 }
                 catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
             }
+        }
+    }*/
+
+    class Ui : MonoBehaviour {
+        GameObject counter = null;
+        GameObject geoText = null;
+
+        public void Awake() {
+            try {
+                geoText = gameObject.transform.Find("Geo Text").gameObject;
+
+                var result = new GameObject("Lumafly counter", typeof(TextMesh), typeof(MeshRenderer));
+                result.layer = geoText.layer;
+
+                TextMesh textMesh = result.GetComponent<TextMesh>();
+                textMesh.alignment = TextAlignment.Left;
+                textMesh.anchor = TextAnchor.MiddleLeft;
+                
+                TextMesh geoTextMesh = geoText.GetComponent<TextMesh>();
+                textMesh.font = geoTextMesh.font;
+                textMesh.fontSize = geoTextMesh.fontSize;
+                textMesh.text = "Loading...";
+
+                MeshRenderer meshRenderer = result.GetComponent<MeshRenderer>();
+                meshRenderer.material = textMesh.font.material;
+
+                result.transform.parent = geoText.transform.parent.transform;
+                result.transform.localScale = geoText.transform.localScale;
+                result.transform.localPosition = geoText.transform.localPosition;
+
+                counter = result;
+            } catch (Exception e) {
+                LumaflyKnight.Instance.Log("Error in Ui.Start() " + e);
+            }
+        }
+
+        public void Update() {
+            try {     
+                var b = geoText.GetComponent<Renderer>().bounds;
+                var pos = counter.transform.position;
+                pos.x = b.max.x + (b.max.y - b.min.y) * 1f;
+                counter.transform.position = pos;
+            } catch (System.Exception e) {
+                LumaflyKnight.Instance.Log("Error in Ui.Update()"  + e);
+            }
+        }
+
+        public void UpdateStats(int hits, int count, int totalHits, int totalCount) {
+            try {
+                counter.GetComponent<TextMesh>().text = hits + "/" + count + " | " + totalHits + "/" + totalCount;
+            } 
+            catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+        }
+
+        public static Ui getUi() {
+            GameObject geoCounter = GameManager.instance?.hero_ctrl?.geoCounter?.gameObject;
+             if (geoCounter != null) {
+                var c = geoCounter.GetComponent<Ui>();
+                if(c == null) c = geoCounter.AddComponent<Ui>();
+
+                return c;
+             }
+             return null;
+        }
+    }
+
+    class RegisterUi : MonoBehaviour {
+   
+
+        public void Update() {
+            try {
+                Ui.getUi();
+            } catch(Exception e) {
+                LumaflyKnight.Instance.LogError(e);
+            }
+        }
+
+        public static void add() { 
+            GameManager.instance.gameObject.AddComponent<RegisterUi>();
         }
     }
 }
