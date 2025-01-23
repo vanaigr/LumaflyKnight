@@ -336,9 +336,11 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    <EmbeddedResource Include="res/list.json">
+      <LogicalName>list</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="res/lumafly.png">
+      <LogicalName>lumafly.png</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 </Project>

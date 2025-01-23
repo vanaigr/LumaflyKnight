@@ -2,7 +2,7 @@
 
 Hollow Knight mod for tracking how many lumaflies you've freed. The current room progress and overall progress are displayed next to the geo counter.
 
-![image](https://github.com/user-attachments/assets/84ca73a6-9b50-4435-96fa-c5561f016254)
+![image](https://github.com/user-attachments/assets/b0ffe399-a28a-4a4b-a6c4-70193cd4eed0)
 
 What counts as containing lumaflies:
 

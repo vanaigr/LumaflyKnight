@@ -414,11 +414,32 @@ namespace LumaflyKnight
             }
         }
 
-         public override string GetVersion() => "v1";
+        public override string GetVersion() => "2";
+
+        public class Anyception : Exception {
+            public dynamic payload;
+            public Anyception(dynamic payload) : base() { 
+                this.payload = payload; 
+            }
+        }
+
+            static Texture2D duplicateTexture(Texture2D source) {
+                RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+                Graphics.Blit(source, temporary);
+                RenderTexture active = RenderTexture.active;
+                RenderTexture.active = temporary;
+                Texture2D texture2D = new Texture2D(source.width, source.height);
+                texture2D.ReadPixels(new Rect(0f, 0f, (float)temporary.width, (float)temporary.height), 0, 0);
+                texture2D.Apply();
+                RenderTexture.active = active;
+                RenderTexture.ReleaseTemporary(temporary);
+                return texture2D;
+            }
 
         public IEnumerator doStuff() {
             /*
-            // Do at your own risk! Grans some achievements (e.g. speedrun).
+            // Update lumafly locations
+            // Do at your own risk! Grants some achievements (e.g. speedrun).
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
             var scenes = new Scene[sceneCount];
             Log("there's " + sceneCount + " scenes.");
@@ -442,24 +463,54 @@ namespace LumaflyKnight
             var resS = Newtonsoft.Json.JsonConvert.SerializeObject(result);
             File.WriteAllText(path, resS);
 
-            UnityEngine.Application.Quit(0);*/
+            UnityEngine.Application.Quit(0);
+            */
 
-            /*var l = new List<string>();
-            l.Add("Crossroads_27");
-            for(int i = 0; i < l.Count; i++) {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(l[i]);
-                yield return null;
-                var s = UnityEngine.SceneManagement.SceneManager.GetSceneByName(l[i]);
+            /*
+            // Extract lumafly icon
+            // Do at your own risk! Grants some achievements (e.g. speedrun).
+            var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
+            var scenes = new Scene[sceneCount];
+            Log("there's " + sceneCount + " scenes.");
+            var result = new Dictionary<string, SceneObjects>();
+            for(int i = 0; i < sceneCount; i++) {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(i);
+                yield return null; // we DO need to await for individual scenes and not load all + wait + process all
+                var s = UnityEngine.SceneManagement.SceneManager.GetSceneByBuildIndex(i);
                 Log("  scene " + i + " is named " + s.name);
                 var roots = s.GetRootGameObjects();
-                for (int j = 0; j < roots.Length; j++) {
-                    reportAll(roots[j], "");
+                try {
+                    for(var j = 0; j < roots.Length; j++) {
+                        processAll(roots[j], it => {
+                            if(it.name.StartsWith("shop_lamp_bug")) throw new Anyception(it);
+                        });
+                    }
                 }
-            }*/
-            
-            //UnityEngine.Application.Quit(0);
+                catch(Anyception a) {
+                    GameObject bug = a.payload as GameObject;
+                    var sp = bug.GetComponent<SpriteRenderer>().sprite;
+                    // texture atlas. Cannot be cropped here because none of the sprite's rect's have the right coords...
+                    var array = duplicateTexture(sp.texture).EncodeToPNG();
+                    using (FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write)) {
+				        fileStream.Write(array, 0, array.Length);
+                    }
+                    Log("Extracted texture successfully");
+                    break;
+                }
+                UnityEngine.SceneManagement.SceneManager.UnloadScene(i);
+            }
 
-            this.items = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(Properties.Resources.items);
+            UnityEngine.Application.Quit(0);
+            */
+
+            string listStr = null;
+            using(var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("list")) {
+                var arr = new byte[s.Length];
+                s.Read(arr, 0, arr.Length);
+                listStr = System.Text.Encoding.UTF8.GetString(arr);
+            }
+
+            this.items = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);
             var totalCount = 0;
             foreach (var it in items) {
                 totalCount += it.Value.lamps.Count;
@@ -602,43 +653,86 @@ namespace LumaflyKnight
     }*/
 
     class Ui : MonoBehaviour {
-        GameObject counter = null;
+        GameObject geoSprite = null;
         GameObject geoText = null;
+        GameObject counter = null;
+        GameObject sprite = null;
 
         public void Awake() {
             try {
                 geoText = gameObject.transform.Find("Geo Text").gameObject;
+                geoSprite = gameObject.transform.Find("Geo Sprite").gameObject;
 
-                var result = new GameObject("Lumafly counter", typeof(TextMesh), typeof(MeshRenderer));
-                result.layer = geoText.layer;
+                geoText.transform.localScale = geoText.transform.localScale * 0.6f;
+                geoSprite.transform.localScale = geoSprite.transform.localScale * 0.6f;
 
-                TextMesh textMesh = result.GetComponent<TextMesh>();
+                var bounds = geoSprite.GetComponent<Renderer>().bounds;
+                TextMesh geoTextMesh = geoText.GetComponent<TextMesh>();
+
+                geoTextMesh.alignment = TextAlignment.Left;
+                geoTextMesh.anchor = TextAnchor.MiddleLeft;
+
+                var pos = geoText.transform.position;
+                pos.x = bounds.max.x + bounds.size.x * 0.2f;
+                pos.y = bounds.center.y - bounds.size.y * 0.1f;
+                geoText.transform.position = pos;
+
+                counter = new GameObject("Lumafly counter", typeof(TextMesh), typeof(MeshRenderer));
+                counter.layer = geoText.layer;
+
+                TextMesh textMesh = counter.GetComponent<TextMesh>();
                 textMesh.alignment = TextAlignment.Left;
                 textMesh.anchor = TextAnchor.MiddleLeft;
                 
-                TextMesh geoTextMesh = geoText.GetComponent<TextMesh>();
+
                 textMesh.font = geoTextMesh.font;
                 textMesh.fontSize = geoTextMesh.fontSize;
                 textMesh.text = "Loading...";
 
-                MeshRenderer meshRenderer = result.GetComponent<MeshRenderer>();
+                MeshRenderer meshRenderer = counter.GetComponent<MeshRenderer>();
                 meshRenderer.material = textMesh.font.material;
 
-                result.transform.parent = geoText.transform.parent.transform;
-                result.transform.localScale = geoText.transform.localScale;
-                result.transform.localPosition = geoText.transform.localPosition;
+                counter.transform.parent = geoText.transform.parent.transform;
+                counter.transform.localScale = geoText.transform.localScale;
+                counter.transform.localPosition = geoText.transform.localPosition;
 
-                counter = result;
+                sprite = new GameObject("Lumafly counter sprite", typeof(SpriteRenderer));
+                sprite.layer = geoSprite.layer;
+                var renderer = sprite.GetComponent<SpriteRenderer>();
+
+                using(var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("lumafly.png")) {
+                    byte[] arr = new byte[s.Length];
+                    s.Read(arr, 0, arr.Length);
+
+                    Texture2D texture = new Texture2D(1, 1);
+                    LumaflyKnight.Instance.Log("aboba" + texture.LoadImage(arr, true));
+                    LumaflyKnight.Instance.Log(texture.width + " " + texture.height);
+                    renderer.sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0f, 0.5f), Math.Max(texture.width, texture.height));
+                }
+                renderer.sortingOrder = 30000;
+                
+                sprite.transform.parent = geoSprite.transform.parent.transform;
+                sprite.transform.localScale = new Vector3(bounds.size.y, bounds.size.y, 1);
+                sprite.transform.localPosition = geoSprite.transform.localPosition;
+
             } catch (Exception e) {
                 LumaflyKnight.Instance.Log("Error in Ui.Start() " + e);
             }
         }
 
         public void Update() {
-            try {     
+            try {
                 var b = geoText.GetComponent<Renderer>().bounds;
-                var pos = counter.transform.position;
-                pos.x = b.max.x + (b.max.y - b.min.y) * 1f;
+                var pos = sprite.transform.position;
+                pos.x = b.max.x;
+                sprite.transform.position = pos;
+                pos = sprite.transform.localPosition;
+                pos.x = Mathf.Ceil(pos.x * 3f) / 3f;
+                sprite.transform.localPosition = pos;
+
+                b = sprite.GetComponent<Renderer>().bounds;
+                pos = counter.transform.position;
+                pos.x = b.max.x + b.size.x * 0.2f;
                 counter.transform.position = pos;
             } catch (System.Exception e) {
                 LumaflyKnight.Instance.Log("Error in Ui.Update()"  + e);
