@@ -2,15 +2,17 @@
 
 Hollow Knight mod for tracking how many lumaflies you've freed. The current room progress and overall progress are displayed next to the geo counter.
 
-![image](https://github.com/user-attachments/assets/b0ffe399-a28a-4a4b-a6c4-70193cd4eed0)
+![image](https://github.com/user-attachments/assets/0066f7fc-a0e9-40d9-a3bf-371471221768)
 
 What counts as containing lumaflies:
 
 <details>
   
 - Poles, lamps, etc.
-- Zombie miners (including Myla).
+- Husk miners (including Myla).
+- Crystallised husks.
 - Empty Junk Pit chest.
+- Watcher Knights Chandelier.
 
 </details>
 
