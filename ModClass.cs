@@ -19,6 +19,9 @@ using UnityEngine.Assertions.Must;
 using GlobalEnums;
 using static GameManager;
 
+// Zombie miner - Husk Miner
+// Zombie beam miner - Crystallised Husk
+
 namespace LumaflyKnight
 {
     public class DoneSceneObjects {
@@ -38,19 +41,6 @@ namespace LumaflyKnight
     {
         internal static LumaflyKnight Instance;
 
-        //public override List<ValueTuple<string, string>> GetPreloadNames()
-        //{
-        //    return new List<ValueTuple<string, string>>
-        //    {
-        //        new ValueTuple<string, string>("White_Palace_18", "White Palace Fly")
-        //    };
-        //}
-
-        //public LumaflyKnight() : base("LumaflyKnight")
-        //{
-        //    Instance = this;
-        //}
-
         /*public void reportAll(GameObject it, string indent)
         {
             Log(indent + "name: " + it.name + ", active=" + it.activeSelf + ", " + it.activeInHierarchy);
@@ -67,15 +57,16 @@ namespace LumaflyKnight
 
         public void reportAllCurrentScene() {
             var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                    var rs = s.GetRootGameObjects();
-                    for(var i = 0; i < rs.Length; i++) {
-                        reportAll(rs[i], "");
-                    }
-        }*/
+            var rs = s.GetRootGameObjects();
+            for(var i = 0; i < rs.Length; i++) {
+                reportAll(rs[i], "");
+            }
+        }
 
         public class ContainLumafly {
             public List<GameObject> lamps;
             public List<GameObject> enemies;
+            public GameObject chandelier;
             //public List<GameObject> unbreakableLamps;
         }
 
@@ -88,7 +79,18 @@ namespace LumaflyKnight
                     cl.lamps.Add(it);
                 }
             }
+            else if(it.name == "chandelier_broken") {
+                cl.chandelier = it;
+            }
             else if(s("Zombie Miner")) cl.enemies.Add(it);
+            else if(s("Zombie Beam Miner")) {
+                // Mines_32 /Battle Scene/Zombie Beam Miner Rematch
+                // GG_Crystal_Guardian_2 /Battle Scene/Zombie Beam Miner Rematch
+                // But crystal guardian 2 doesn't have lumaflies
+                if(!it.name.Contains("Rematch")) {
+                    cl.enemies.Add(it);
+                }
+            }
             else if(s("Zombie Myla")) cl.enemies.Add(it);
             //else if(s("lamp_01")) cl.unbreakableLamps.Add(it);
             //else if(s("lamp_02")) cl.unbreakableLamps.Add(it);
@@ -99,6 +101,7 @@ namespace LumaflyKnight
                 addAll(it.transform.GetChild(i).gameObject, cl);
             }
         }
+        */
 
         public static FieldInfo breakableRemnantParts;
 
@@ -206,13 +209,22 @@ namespace LumaflyKnight
                     }
                     else { 
                         var obj = find2(s, i);
-                        var u = obj.AddComponent<UpdateWhenActive>();
-                        u.onEnable += (_, _) => {
+                        // should it be activeInHierarchy or activeSelf?
+                        if(obj.activeInHierarchy) {
                             if(data.addLamp(sname, i)) {
                                 hitCount++;
                                 Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
                             }
-                        };
+                        }
+                        else {
+                            var u = obj.AddComponent<UpdateWhenActive>();
+                            u.onEnable += (_, _) => {
+                                if(data.addLamp(sname, i)) {
+                                    hitCount++;
+                                    Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                }
+                            };
+                        }
                     }
                 }
                 catch(Exception e) {
@@ -258,7 +270,8 @@ namespace LumaflyKnight
             return path;
         }
 
-        /*public SceneObjects saveSceneObjects(Scene s) {
+        /*
+        public SceneObjects saveSceneObjects(Scene s) {
             var res = new SceneObjects();
 
             var lumas = new ContainLumafly { 
@@ -280,6 +293,9 @@ namespace LumaflyKnight
                     res.lamps.Add(path(l), new LampData { brk = root == null ? "" : path(root) });
                 }
             }
+            if(lumas.chandelier != null) { 
+                res.lamps.Add(path(lumas.chandelier), new LampData { brk = null });
+            }
 
             for(var i = 0; i < lumas.enemies.Count; i++) {
                 var l = lumas.enemies[i];
@@ -287,7 +303,8 @@ namespace LumaflyKnight
             }
 
             return res;
-        }*/
+        }
+        */
 
         public  struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
@@ -414,7 +431,7 @@ namespace LumaflyKnight
             }
         }
 
-        public override string GetVersion() => "2";
+        public override string GetVersion() => "3";
 
         public class Anyception : Exception {
             public dynamic payload;
@@ -423,18 +440,18 @@ namespace LumaflyKnight
             }
         }
 
-            static Texture2D duplicateTexture(Texture2D source) {
-                RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-                Graphics.Blit(source, temporary);
-                RenderTexture active = RenderTexture.active;
-                RenderTexture.active = temporary;
-                Texture2D texture2D = new Texture2D(source.width, source.height);
-                texture2D.ReadPixels(new Rect(0f, 0f, (float)temporary.width, (float)temporary.height), 0, 0);
-                texture2D.Apply();
-                RenderTexture.active = active;
-                RenderTexture.ReleaseTemporary(temporary);
-                return texture2D;
-            }
+        static Texture2D duplicateTexture(Texture2D source) {
+            RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+            Graphics.Blit(source, temporary);
+            RenderTexture active = RenderTexture.active;
+            RenderTexture.active = temporary;
+            Texture2D texture2D = new Texture2D(source.width, source.height);
+            texture2D.ReadPixels(new Rect(0f, 0f, (float)temporary.width, (float)temporary.height), 0, 0);
+            texture2D.Apply();
+            RenderTexture.active = active;
+            RenderTexture.ReleaseTemporary(temporary);
+            return texture2D;
+        }
 
         public IEnumerator doStuff() {
             /*
@@ -543,7 +560,15 @@ namespace LumaflyKnight
         }
     }
 
-    /*class ModUpdate : MonoBehaviour {
+    class OnInactive : MonoBehaviour {
+        public event EventHandler onDisable;
+        void OnDisable() {
+            onDisable?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /*
+    class ModUpdate : MonoBehaviour {
         int curRoomI = 0;
         string[] scenes = LumaflyKnight.Instance.items.Keys.ToArray();
         
@@ -571,7 +596,7 @@ namespace LumaflyKnight
                for(var i = 0; i < rs.Length; i++) {
                     LumaflyKnight.Instance.processAll(rs[i], insert);
                }
-
+                  
                LumaflyKnight.Instance.Log("Objects near the player:");
                for(var i = 0; i < list.Count; i++) {
                     var it = list[i].Obj;
@@ -583,44 +608,47 @@ namespace LumaflyKnight
                     }
                     LumaflyKnight.Instance.Log("");
                }
+               for(var i = 0; i < list.Count; i++) {
+                    GameObject.Destroy(list[i].Obj);
+                } 
             }
 
             if (Input.GetKeyDown(KeyCode.P)) {
                 LumaflyKnight.Instance.reportAllCurrentScene();
             }
-            if (Input.GetKeyDown(KeyCode.K)) {
-                try {
-                for(; curRoomI > 0; curRoomI--) {
-                    var k = scenes[curRoomI];
-                    DoneSceneObjects it; 
-                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
-                    var or = LumaflyKnight.Instance.items[k];
-                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
-                        break;
-                    }
-                }
-                //curRoomI = Math.Max(curRoomI - 1, 0);
-                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
-                }
-                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
-
-            }
-            if(Input.GetKeyDown(KeyCode.L)) {
-                try { 
-                for(; curRoomI < scenes.Length - 1; curRoomI++) {
-                    var k = scenes[curRoomI];
-                    DoneSceneObjects it; 
-                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
-                    var or = LumaflyKnight.Instance.items[k];
-                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
-                        break;
-                    }
-                }
-                //curRoomI = Math.Min(curRoomI + 1, scenes.Length);
-                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
-                    }
-                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
-            }
+            //if (Input.GetKeyDown(KeyCode.K)) {
+            //    try {
+            //    for(; curRoomI > 0; curRoomI--) {
+            //        var k = scenes[curRoomI];
+            //        DoneSceneObjects it; 
+            //        if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+            //        var or = LumaflyKnight.Instance.items[k];
+            //        if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+            //            break;
+            //        }
+            //    }
+            //    //curRoomI = Math.Max(curRoomI - 1, 0);
+            //    GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+            //    }
+            //    catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            //
+            //}
+            //if(Input.GetKeyDown(KeyCode.L)) {
+            //    try { 
+            //    for(; curRoomI < scenes.Length - 1; curRoomI++) {
+            //        var k = scenes[curRoomI];
+            //        DoneSceneObjects it; 
+            //        if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+            //        var or = LumaflyKnight.Instance.items[k];
+            //        if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+            //            break;
+            //        }
+            //    }
+            //    //curRoomI = Math.Min(curRoomI + 1, scenes.Length);
+            //    GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+            //        }
+            //    catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            //}
             if(Input.GetKeyDown(KeyCode.J)) {
                 try { 
                     var list = new List<LumaflyKnight.Entry>();
@@ -650,7 +678,8 @@ namespace LumaflyKnight
                 catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
             }
         }
-    }*/
+    }
+    */
 
     class Ui : MonoBehaviour {
         GameObject geoSprite = null;
@@ -759,8 +788,6 @@ namespace LumaflyKnight
     }
 
     class RegisterUi : MonoBehaviour {
-   
-
         public void Update() {
             try {
                 Ui.getUi();
