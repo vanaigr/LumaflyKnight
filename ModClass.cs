@@ -18,27 +18,29 @@ using IL.InControl;
 using UnityEngine.Assertions.Must;
 using GlobalEnums;
 using static GameManager;
+using HutongGames.Utility;
 
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
 
-namespace LumaflyKnight
-{
+namespace LumaflyKnight {
     public class DoneSceneObjects {
         public HashSet<string> lamps = new HashSet<string>();
         public HashSet<string> enemies = new HashSet<string>();
     }
 
     public class DoneItems {
-        public Dictionary<string, DoneSceneObjects> items = new Dictionary<string, DoneSceneObjects>();
+        public Dictionary<string, DoneSceneObjects> items;
+        public Dictionary<string, HashSet<string>> items2;
     }
 
     public class GlobalSettings {
         public bool permanentLumaflyRelease = true;
+        public bool countZombieBeamMiners = false;
+        public bool countChandelier = false;
     }
 
-    public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings>
-    {
+    public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
 
         /*public void reportAll(GameObject it, string indent)
@@ -64,8 +66,9 @@ namespace LumaflyKnight
         }
 
         public class ContainLumafly {
-            public List<GameObject> lamps;
-            public List<GameObject> enemies;
+            public List<GameObject> bugEscape;
+            public List<GameObject> zombieMiners;
+            public List<GameObject> zombieBeamMiners;
             public GameObject chandelier;
             //public List<GameObject> unbreakableLamps;
         }
@@ -76,22 +79,22 @@ namespace LumaflyKnight
             if(s("lamp_bug_escape")) {
                 // why remove the object when you can delete the particle system, right?
                 if(it.GetComponent<ParticleSystem>() != null) {
-                    cl.lamps.Add(it);
+                    cl.bugEscape.Add(it);
                 }
             }
             else if(it.name == "chandelier_broken") {
                 cl.chandelier = it;
             }
-            else if(s("Zombie Miner")) cl.enemies.Add(it);
+            else if(s("Zombie Miner")) cl.zombieMiners.Add(it);
+            else if(s("Zombie Myla")) cl.zombieMiners.Add(it);
             else if(s("Zombie Beam Miner")) {
                 // Mines_32 /Battle Scene/Zombie Beam Miner Rematch
                 // GG_Crystal_Guardian_2 /Battle Scene/Zombie Beam Miner Rematch
                 // But crystal guardian 2 doesn't have lumaflies
                 if(!it.name.Contains("Rematch")) {
-                    cl.enemies.Add(it);
+                    cl.zombieBeamMiners.Add(it);
                 }
             }
-            else if(s("Zombie Myla")) cl.enemies.Add(it);
             //else if(s("lamp_01")) cl.unbreakableLamps.Add(it);
             //else if(s("lamp_02")) cl.unbreakableLamps.Add(it);
             //else if(s("lamp_01_glows")) cl.unbreakableLamps.Add(it);
@@ -101,7 +104,6 @@ namespace LumaflyKnight
                 addAll(it.transform.GetChild(i).gameObject, cl);
             }
         }
-        */
 
         public static FieldInfo breakableRemnantParts;
 
@@ -112,11 +114,15 @@ namespace LumaflyKnight
             return ((List<GameObject>)breakableRemnantParts.GetValue(it)).ToArray();
         }
 
-        public bool canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants, out GameObject root) {
+        class LumaflyReleaseInfo {
+            public GameObject root;
+            public bool chest;
+        };
+
+        LumaflyReleaseInfo canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants) {
             var p = it.transform.parent;
             if(p == null) {
-                root = null;
-                return false;
+                return null;
             }
 
             possibleRemnants.Add(it);
@@ -130,24 +136,22 @@ namespace LumaflyKnight
                 }
                 
                 if(i != list.Length && p.gameObject.activeInHierarchy) {
-                    root = p.gameObject;
-                    return true;
+                    return new LumaflyReleaseInfo{ root = p.gameObject };
                 }
 
-                root = null;
-                return false;
+                return null;
             }
             else if(p.gameObject.name.StartsWith("Chest")) {
-                root = null;
-                return true;
+                return new LumaflyReleaseInfo { chest = true };
             }
             else {
-                return canReleaseLumafly(p.gameObject, possibleRemnants, out root);
+                return canReleaseLumafly(p.gameObject, possibleRemnants);
             }
         }
+        */
 
-         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-         public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         public GameObject findInHierarchy(GameObject o, string[] names, int beginI) {
             if(beginI >= names.Length) return o;
@@ -176,12 +180,13 @@ namespace LumaflyKnight
             var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var sname = s.name;
             if(s != s0) {
+                // Can happen in a boss room actually. Not sure what should happen.
                 Log("Should not happen 1: " + s0name + " " + sname);
                 yield break;
             }
 
-            SceneObjects objs;
-            if(!this.items.TryGetValue(s.name, out objs)) {
+            Dictionary<string, Type> objTypes;
+            if(!data.itemType.TryGetValue(s.name, out objTypes)) {
                 Ui.getUi()?.UpdateStats(0, 0, data.totalHit, data.totalCount);
                 yield break;
             }
@@ -189,78 +194,83 @@ namespace LumaflyKnight
             var hitCount = 0;
             var possibleCount = 0;
 
-            foreach(var pair in objs.lamps) {
-                possibleCount++;
-                var i = pair.Key;
-                var d = pair.Value;
+            foreach(var pair in objTypes) {
+                var path = pair.Key;
+                var typ = pair.Value;
+                var type = typ.type;
+
+                possibleCount += countIncrease(type);
+
                 try {
-                    if(data.hasLamp(sname, i)) {
-                        hitCount++;
+                    var obj = find2(s, path);
+
+                    if(data.has(sname, path, type)) {
+                        hitCount += countIncrease(type);
+
                         if(globalSettings.permanentLumaflyRelease) {
-                            var obj = find2(s, i);
-                            obj.SetActive(false);
-                            if(d.brk != "") {
-                                var pobj = find2(s, d.brk);
-                                var pb = pobj.GetComponent<Breakable>();
-                                isBroken.SetValue(pb, true);
-                                partsActivation.Invoke(pb, new object[]{ true });
+                            if(type == 0) {
+                                obj.SetActive(false);
+
+                                var d = (LampData)typ.data;
+                                if(d.brk != "") {
+                                    var pobj = find2(s, d.brk);
+                                    var pb = pobj.GetComponent<Breakable>();
+                                    isBroken.SetValue(pb, true);
+                                    partsActivation.Invoke(pb, new object[]{ true });
+                                }
+                            }
+                            else if(type == 2 || type == 3) {
+                                obj.SetActive(false);
                             }
                         }
                     }
-                    else { 
-                        var obj = find2(s, i);
-                        // should it be activeInHierarchy or activeSelf?
-                        if(obj.activeInHierarchy) {
-                            if(data.addLamp(sname, i)) {
-                                hitCount++;
-                                Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                    else {
+                        if(type == 0 || type == 3 || type == 4) {
+                            // should it be activeInHierarchy or activeSelf?
+                            if(obj.activeInHierarchy) {
+                                if(data.add(sname, path, type)) {
+                                    hitCount += countIncrease(type);
+                                }
+                            }
+                            else {
+                                var u = obj.AddComponent<UpdateWhenActive>();
+                                u.onEnable += (_, _) => {
+                                    if(data.add(sname, path, type)) {
+                                        hitCount += countIncrease(type);
+                                        Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                    }
+                                };
                             }
                         }
                         else {
-                            var u = obj.AddComponent<UpdateWhenActive>();
-                            u.onEnable += (_, _) => {
-                                if(data.addLamp(sname, i)) {
-                                    hitCount++;
-                                    Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                            if(!obj.activeInHierarchy) {
+                                if(data.add(sname, path, type)) {
+                                    hitCount += countIncrease(type);
                                 }
-                            };
-                        }
-                    }
-                }
-                catch(Exception e) {
-                    LogError("Died on lamp " + s.name + " " + i + ": " + e);
-                }
-            }
-
-            foreach(var pair in objs.enemies) {
-                possibleCount++;
-                var i = pair.Key;
-                try {
-                    if(data.hasEnemy(sname, i)) {
-                        hitCount++;
-                        if(globalSettings.permanentLumaflyRelease) {
-                            var obj = find2(s, i);
-                            obj.SetActive(false);
-                        }
-                    }
-                    else { 
-                        var obj = find2(s, i);
-                        obj.GetComponent<HealthManager>().OnDeath += () => {
-                            if(data.addEnemy(sname, i)) {
-                                hitCount++;
-                                Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                            } 
+                            else {
+                                obj.GetComponent<HealthManager>().OnDeath += () => {
+                                    if(data.add(sname, path, type)) {
+                                        hitCount += countIncrease(type);
+                                        Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                    }
+                                };
                             }
-                        };
+                        }
                     }
                 }
                 catch(Exception e) {
-                    LogError("Died on enemy " + s.name + " " + i + ": " + e);
+                    LogError("Died on object " + s.name + " " + path + ": " + e);
+                    // This can happen if the object is permanently removed, but the game crashed
+                    // and our data wasn't saved, but game data was.
+                    if(data.add(sname, path, type)) hitCount += countIncrease(type);
                 }
             }
 
             Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
         }
 
+        /*
         public static string path(GameObject obj) {
             string path = "/" + obj.name;
             while (obj.transform.parent != null) {
@@ -270,122 +280,134 @@ namespace LumaflyKnight
             return path;
         }
 
-        /*
         public SceneObjects saveSceneObjects(Scene s) {
-            var res = new SceneObjects();
+            var lamps = new Dictionary<string, LampData>();
+            var enemies = new Dictionary<string, EnemyData>();
+            var beamMiners = new Dictionary<string, EnemyData>();
+            var chests = new Dictionary<string, SpecialData>();
+            var chandeliers = new Dictionary<string, SpecialData>();
 
             var lumas = new ContainLumafly { 
-                enemies = new List<GameObject>(), 
-                lamps = new List<GameObject>(),
+                bugEscape = new List<GameObject>(),
+                zombieMiners = new List<GameObject>(), 
+                zombieBeamMiners = new List<GameObject>(),
             };
             
             var rs = s.GetRootGameObjects();
             for(var i = 0; i < rs.Length; i++) {
                 addAll(rs[i], lumas);
             }
-            Log("  Count is " + lumas.lamps.Count + " " + lumas.enemies.Count);
+            Log("  Count is " + lumas.bugEscape.Count + " " + lumas.zombieMiners.Count + " " + lumas.zombieBeamMiners.Count + " " + (lumas.chandelier != null));
 
-            for(var i = 0; i < lumas.lamps.Count; i++) {
-                var l = lumas.lamps[i];
-                GameObject root;
-                if(canReleaseLumafly(l, new HashSet<GameObject>(), out root)) { 
-                    // chests remember their state, so we will do nothing for them.
-                    res.lamps.Add(path(l), new LampData { brk = root == null ? "" : path(root) });
+            for(var i = 0; i < lumas.bugEscape.Count; i++) {
+                var l = lumas.bugEscape[i];
+                var info = canReleaseLumafly(l, new HashSet<GameObject>());
+                if(info != null) { 
+                    if(info.chest) {
+                        chests.Add(path(l), new SpecialData());
+                    }
+                    else {
+                        lamps.Add(path(l), new LampData{ brk = path(info.root) });
+                    }
                 }
             }
             if(lumas.chandelier != null) { 
-                res.lamps.Add(path(lumas.chandelier), new LampData { brk = null });
+                chandeliers.Add(path(lumas.chandelier), new SpecialData());
             }
 
-            for(var i = 0; i < lumas.enemies.Count; i++) {
-                var l = lumas.enemies[i];
-                res.enemies.Add(path(l), new EnemyData());
+            for(var i = 0; i < lumas.zombieMiners.Count; i++) {
+                var l = lumas.zombieMiners[i];
+                enemies.Add(path(l), new EnemyData());
+            }
+            
+            for(var i = 0; i < lumas.zombieBeamMiners.Count; i++) {
+                var l = lumas.zombieBeamMiners[i];
+                beamMiners.Add(path(l), new EnemyData());
             }
 
-            return res;
+            return new SceneObjects{ 
+                lamps = lamps,
+                enemies = enemies,
+                beamMiners = beamMiners,
+                chests = chests,
+                chandeliers = chandeliers,
+            };
         }
         */
 
-        public  struct LampData {
+        public struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
         }
+        public struct SpecialData {}
 
-        public  struct EnemyData {
-        }
+        public struct EnemyData {}
 
         public  class SceneObjects {
-            public Dictionary<string, LampData> lamps = new Dictionary<string, LampData>();
-            public Dictionary<string, EnemyData> enemies = new Dictionary<string, EnemyData>();
+            public Dictionary<string, LampData> lamps;
+            public Dictionary<string, EnemyData> enemies;
+            public Dictionary<string, EnemyData> beamMiners;
+            public Dictionary<string, SpecialData> chests;
+            public Dictionary<string, SpecialData> chandeliers;
         }
 
-        public Dictionary<string, SceneObjects> items;
+        public struct Type {
+            public int type; // 0 - lamps, 1 - enemies, etc.
+            public object data;
+        }
+
+        public static int countIncrease(int type) {
+            // the chest has 9 lumaflies
+            return type == 3 ? 9 : 1;
+        }
 
         public struct Data {
             public int totalHit;
             public int totalCount;
 
-            public DoneItems items;
+            public Dictionary<string, SceneObjects> allItems;
+            // Doesn't contain an item if it is disabled by settings.
+            public Dictionary<string, Dictionary<string, Type>> itemType;
 
-            public bool hasLamp(string scene, string path) {
-                if(items == null) {
+            public Dictionary<string, HashSet<string>> done;
+
+            public Type? getType(string scene, string path) {
+                Dictionary<string, Type> a;
+                if(!itemType.TryGetValue(scene, out a)) return null;
+                Type type;
+                if(!a.TryGetValue(path, out type)) return null;
+                return type;
+            }
+
+            public bool has(string scene, string path, int type) {
+                if(done == null) {
                     LumaflyKnight.Instance.LogError("Should not happen 4");
                     return false;
                 }
 
-                DoneSceneObjects dso;
-                if(!items.items.TryGetValue(scene, out dso)) return false;
-                return dso.lamps.Contains(path);
-            }
-            public bool hasEnemy(string scene, string path) {
-                if(items == null) {
-                    LumaflyKnight.Instance.LogError("Should not happen 5");
-                    return false;
-                }
-
-                DoneSceneObjects dso;
-                if(!items.items.TryGetValue(scene, out dso)) return false;
-                return dso.enemies.Contains(path);
+                HashSet<string> its;
+                if(!done.TryGetValue(scene, out its)) return false;
+                return its.Contains(path);
             }
 
-            public bool addLamp(string scene, string path) {
-                if(items == null) {
+            public bool add(string scene, string path, int type) {
+                if(done == null) {
                     LumaflyKnight.Instance.LogError("Should not happen 2");
                     return false;
                 }
-
-                DoneSceneObjects dso;
-                if(!items.items.TryGetValue(scene, out dso)) {
-                    dso = new DoneSceneObjects();
-                    items.items.Add(scene, dso);
+                
+                HashSet<string> its;
+                if(!done.TryGetValue(scene, out its)) {
+                    its = new HashSet<string>();
+                    done.Add(scene, its);
                 }
 
-                if(dso.lamps.Contains(path)) {
+                if(its.Contains(path)) {
                     return false;
                 }
 
-                totalHit++;
-                dso.lamps.Add(path);
-                return true;
-            }
+                totalHit += countIncrease(type);
+                its.Add(path);
 
-            public bool addEnemy(string scene, string path) {
-                if(items == null) {
-                    LumaflyKnight.Instance.LogError("Should not happen 3");
-                    return false;
-                }
-
-                DoneSceneObjects dso;
-                if(!items.items.TryGetValue(scene, out dso)) {
-                    dso = new DoneSceneObjects();
-                    items.items.Add(scene, dso);
-                }
-
-                if(dso.enemies.Contains(path)) {
-                    return false;
-                }
-
-                totalHit++;
-                dso.enemies.Add(path);
                 return true;
             }
         }
@@ -393,15 +415,40 @@ namespace LumaflyKnight
         public Data data;
 
         public void OnLoadLocal(DoneItems s) {
-            data.items = s;
-            int toalHit = 0;
-            foreach (var it in s.items) {
-                toalHit += it.Value.lamps.Count;
-                toalHit += it.Value.enemies.Count;
+            var ni = new Dictionary<string, HashSet<string>>();
+            if(s.items2 != null) ni = s.items2;
+            else if(s.items != null) {
+                foreach(var p in s.items) {
+                    var result = new HashSet<string>();
+                    foreach(var item in p.Value.lamps) {
+                        result.Add(item);
+                    }
+                    foreach(var item in p.Value.enemies) {
+                        result.Add(item);
+                    }
+                    ni.Add(p.Key, result);
+                }
             }
-            data.totalHit = toalHit;
+
+            data.done = ni;
+
+            int totalHit = 0;
+            foreach(var scene in data.done) {
+                Dictionary<string, Type> vs;
+                if(!data.itemType.TryGetValue(scene.Key, out vs)) continue;
+
+                foreach(var path in scene.Value) {
+                    Type type;
+                    if(!vs.TryGetValue(path, out type)) continue;
+                    totalHit += countIncrease(type.type);
+                }
+            }
+
+
+            data.totalHit = totalHit;
         }
-        public DoneItems OnSaveLocal() => data.items;
+
+        public DoneItems OnSaveLocal() => new DoneItems{ items2 = data.done };
 
         public GlobalSettings globalSettings = new GlobalSettings();
 
@@ -431,15 +478,16 @@ namespace LumaflyKnight
             }
         }
 
-        public override string GetVersion() => "3";
+        public override string GetVersion() => "4";
 
+        /*
         public class Anyception : Exception {
             public dynamic payload;
             public Anyception(dynamic payload) : base() { 
                 this.payload = payload; 
             }
         }
-
+        
         static Texture2D duplicateTexture(Texture2D source) {
             RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
             Graphics.Blit(source, temporary);
@@ -452,6 +500,7 @@ namespace LumaflyKnight
             RenderTexture.ReleaseTemporary(temporary);
             return texture2D;
         }
+        */
 
         public IEnumerator doStuff() {
             /*
@@ -466,8 +515,15 @@ namespace LumaflyKnight
                 yield return null; // we DO need to await for individual scenes and not load all + wait + process all
                 var s = UnityEngine.SceneManagement.SceneManager.GetSceneByBuildIndex(i);
                 Log("  scene " + i + " is named " + s.name);
-                var sr = saveSceneObjects(s);
-                if(sr.lamps.Count > 0 || sr.enemies.Count > 0) {
+                SceneObjects sr;
+                try {
+                    sr = saveSceneObjects(s);
+                }
+                catch(Exception e) {
+                    LogError("Error: " + e);
+                    yield break;
+                }
+                if(sr.lamps.Count > 0 || sr.enemies.Count > 0 || sr.beamMiners.Count > 0 || sr.chests.Count > 0 || sr.chandeliers.Count > 0) {
                     result.Add(s.name, sr);
                 }
                 UnityEngine.SceneManagement.SceneManager.UnloadScene(i);
@@ -526,14 +582,50 @@ namespace LumaflyKnight
                 s.Read(arr, 0, arr.Length);
                 listStr = System.Text.Encoding.UTF8.GetString(arr);
             }
+            data.allItems = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);
+            try {
+                // Global settings should be loaded by now...
+                var itemType = new Dictionary<string, Dictionary<string, Type>>();
 
-            this.items = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);
-            var totalCount = 0;
-            foreach (var it in items) {
-                totalCount += it.Value.lamps.Count;
-                totalCount += it.Value.enemies.Count;
+                var totalCount = 0;
+                foreach (var it in data.allItems) {
+                    var v = it.Value;
+                    var res = new Dictionary<string, Type>();
+
+                    foreach(var p in it.Value.lamps) {
+                        totalCount += countIncrease(0);
+                        res.Add(p.Key, new Type{ type = 0, data = p.Value });
+                    }
+                    foreach(var p in it.Value.enemies) {
+                        totalCount += countIncrease(1);
+                        res.Add(p.Key, new Type{ type = 1, data = p.Value });
+                    }
+                    if(globalSettings.countZombieBeamMiners) {
+                        foreach (var p in it.Value.beamMiners) {
+                            totalCount += countIncrease(2);
+                            res.Add(p.Key, new Type{ type = 2, data = p.Value });
+                        }
+                    }
+                    foreach (var p in it.Value.chests) {
+                        totalCount += countIncrease(3);
+                        res.Add(p.Key, new Type{ type = 3, data = p.Value });
+                    }
+                    if(globalSettings.countChandelier) {
+                        foreach (var p in it.Value.chandeliers) {
+                            totalCount += countIncrease(4);
+                            res.Add(p.Key, new Type{ type = 4, data = p.Value });
+                        }
+                    }
+
+                    itemType.Add(it.Key, res);
+                }
+
+                data.itemType = itemType;
+                data.totalCount = totalCount;
+            } catch(Exception e) {
+                LogError("Died: " + e);
             }
-            this.data.totalCount = totalCount;
+
             RegisterUi.add();
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(prepareScene());
 
@@ -557,13 +649,6 @@ namespace LumaflyKnight
         public event EventHandler onEnable;
         public void OnEnable() {
             onEnable?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    class OnInactive : MonoBehaviour {
-        public event EventHandler onDisable;
-        void OnDisable() {
-            onDisable?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -616,39 +701,39 @@ namespace LumaflyKnight
             if (Input.GetKeyDown(KeyCode.P)) {
                 LumaflyKnight.Instance.reportAllCurrentScene();
             }
-            //if (Input.GetKeyDown(KeyCode.K)) {
-            //    try {
-            //    for(; curRoomI > 0; curRoomI--) {
-            //        var k = scenes[curRoomI];
-            //        DoneSceneObjects it; 
-            //        if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
-            //        var or = LumaflyKnight.Instance.items[k];
-            //        if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
-            //            break;
-            //        }
-            //    }
-            //    //curRoomI = Math.Max(curRoomI - 1, 0);
-            //    GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
-            //    }
-            //    catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
-            //
-            //}
-            //if(Input.GetKeyDown(KeyCode.L)) {
-            //    try { 
-            //    for(; curRoomI < scenes.Length - 1; curRoomI++) {
-            //        var k = scenes[curRoomI];
-            //        DoneSceneObjects it; 
-            //        if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
-            //        var or = LumaflyKnight.Instance.items[k];
-            //        if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
-            //            break;
-            //        }
-            //    }
-            //    //curRoomI = Math.Min(curRoomI + 1, scenes.Length);
-            //    GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
-            //        }
-            //    catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
-            //}
+            if (Input.GetKeyDown(KeyCode.K)) {
+                try {
+                for(; curRoomI > 0; curRoomI--) {
+                    var k = scenes[curRoomI];
+                    DoneSceneObjects it; 
+                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+                    var or = LumaflyKnight.Instance.items[k];
+                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+                        break;
+                    }
+                }
+                //curRoomI = Math.Max(curRoomI - 1, 0);
+                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+                }
+                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            
+            }
+            if(Input.GetKeyDown(KeyCode.L)) {
+                try { 
+                for(; curRoomI < scenes.Length - 1; curRoomI++) {
+                    var k = scenes[curRoomI];
+                    DoneSceneObjects it; 
+                    if(!LumaflyKnight.Instance.data.items.items.TryGetValue(k, out it)) break;
+                    var or = LumaflyKnight.Instance.items[k];
+                    if(or.lamps.Count - it.lamps.Count != 0 || or.enemies.Count - it.enemies.Count != 0) {
+                        break;
+                    }
+                }
+                //curRoomI = Math.Min(curRoomI + 1, scenes.Length);
+                GameManager.instance.StartCoroutine(LumaflyKnight.Instance.go(scenes[curRoomI]));
+                    }
+                catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
+            }
             if(Input.GetKeyDown(KeyCode.J)) {
                 try { 
                     var list = new List<LumaflyKnight.Entry>();
@@ -753,7 +838,7 @@ namespace LumaflyKnight
             try {
                 var b = geoText.GetComponent<Renderer>().bounds;
                 var pos = sprite.transform.position;
-                pos.x = b.max.x;
+                pos.x = b.max.x + b.size.y * 0.5f;
                 sprite.transform.position = pos;
                 pos = sprite.transform.localPosition;
                 pos.x = Mathf.Ceil(pos.x * 3f) / 3f;
