@@ -219,7 +219,7 @@ namespace LumaflyKnight {
                                     partsActivation.Invoke(pb, new object[]{ true });
                                 }
                             }
-                            else if(type == 2 || type == 3) {
+                            else if(type == 1 || type == 2) {
                                 obj.SetActive(false);
                             }
                         }
