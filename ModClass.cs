@@ -243,6 +243,11 @@ namespace LumaflyKnight {
                             }
                         }
                         else {
+                            if(obj.name == "Zombie Myla") {
+                                var obj2 = find2(s, "/Miner");
+                                if(obj2 != null && obj2.activeInHierarchy) continue;
+                            }
+
                             if(!obj.activeInHierarchy) {
                                 if(data.add(sname, path, type)) {
                                     hitCount += countIncrease(type);
