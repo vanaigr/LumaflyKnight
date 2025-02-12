@@ -25,5 +25,6 @@ settings if you want to count them.
 By default, after releasing lumafiles from an object, it will remain in its "after" state even after a room transition.
 This can be disabled by setting `"permanentLumaflyRelease": false` in the mod's global settings.
 
+All config options mentioned above are also available in the in-game menu at Options > Mods > LumaflyKnight Options. 
 
 Loosely based on [GrassyKnight](https://github.com/itsjohncs/GrassyKnight).
