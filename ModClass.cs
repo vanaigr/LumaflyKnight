@@ -3,7 +3,7 @@
 //#define EXTRACT
 
 // for debugging
-//#define TEST
+#define TEST
 
 using Modding;
 using System;
@@ -61,6 +61,12 @@ namespace LumaflyKnight {
 
     public class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
+
+        public override List<(string, string)> GetPreloadNames() {
+            return new List<(string, string)> {
+                ("Room_Town_Stag_Station", "station_pole/Stag_Pole_Tall_Break (2)/lamp_bug_escape (7)"),
+            };   
+        }
 
         #if EXTRACT || TEST
         public void reportAll(GameObject it, string indent)
@@ -755,8 +761,49 @@ namespace LumaflyKnight {
         }
         #endif
 
-        public IEnumerator doStuff() {
-            #if EXTRACT
+        public class Obj {
+            public FieldInfo fi;
+            public PropertyInfo pi;
+            public object value;
+        }
+
+        // https://discussions.unity.com/t/how-to-add-a-copy-of-particle-system-of-another-object-in-scene-using-c-script/610663
+        // https://discussions.unity.com/t/copy-a-component-at-runtime/71172
+        public static List<Obj> toProps(object src) {
+            var res = new List<Obj>();
+
+            System.Type type = src.GetType();
+            System.Reflection.FieldInfo[] fields = type.GetFields(); 
+            foreach(var field in fields) {
+                res.Add(new Obj { fi = field, value = field.GetValue(src) });
+            }
+
+            foreach(var prop in type.GetProperties()) {
+                if(!prop.CanWrite || !prop.CanRead) continue;
+                res.Add(new Obj { pi = prop, value = prop.GetValue(src) });
+            }
+
+            return res;
+        }
+
+        public static void setProps(object dst, List<Obj> values) {
+            foreach(var value in values) {
+                if(value.fi != null) value.fi.SetValue(dst, value.value);
+                if(value.pi != null) value.pi.SetValue(dst, value.value);
+            }
+        }
+
+        public class EffectInfo {
+            public List<Obj> particleSystemInfo;
+            public List<Obj> particleSystemMainInfo;
+            public List<Obj> particleSystemTextureSheetInfo;
+            public List<Obj> rendererInfo;
+        }
+        public static EffectInfo effectInfo;
+
+        
+        public IEnumerator doStuff(Dictionary<string, Dictionary<string, GameObject>> preloadedObjects) {
+#if EXTRACT
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
             var scenes = new Scene[sceneCount];
             Log("there's " + sceneCount + " scenes.");
@@ -788,7 +835,7 @@ namespace LumaflyKnight {
             File.WriteAllText(Constants.extractPath, resS);
 
             UnityEngine.Application.Quit(0);
-            #endif
+#endif
 
             /*
             // Extract lumafly icon
@@ -827,6 +874,20 @@ namespace LumaflyKnight {
             UnityEngine.Application.Quit(0);
             */
 
+            var e = effectInfo = new EffectInfo{ };
+            try {
+                var source = preloadedObjects.First().Value.First().Value;
+                var sourcePS = source.GetComponent<ParticleSystem>();
+                e.particleSystemInfo = toProps(sourcePS);
+                e.particleSystemMainInfo = toProps(sourcePS.main);
+                e.particleSystemTextureSheetInfo = toProps(sourcePS.textureSheetAnimation);
+                e.rendererInfo = toProps(source.GetComponent<ParticleSystemRenderer>());
+            }
+            catch(Exception err) {
+                Log(err);
+            }
+
+
             string listStr = null;
             using(var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("list")) {
                 var arr = new byte[s.Length];
@@ -855,7 +916,7 @@ namespace LumaflyKnight {
             Log("Initializing");
 
             LumaflyKnight.Instance = this;
-            GameManager.instance.StartCoroutine(doStuff());
+            GameManager.instance.StartCoroutine(doStuff(preloadedObjects));
 
             Log("Initialized");
         }
@@ -923,6 +984,42 @@ namespace LumaflyKnight {
 
             if (Input.GetKeyDown(KeyCode.P)) {
                 LumaflyKnight.Instance.reportAllCurrentScene();
+            }
+
+            if (Input.GetKeyDown(KeyCode.O)) {
+                try {
+                    var target = new GameObject("", typeof(ParticleSystem), typeof(ParticleSystemRenderer));
+
+                    var newPS = target.GetComponent<ParticleSystem>();
+                    var targetRenderer = target.GetComponent<ParticleSystemRenderer>();
+
+                    LumaflyKnight.setProps(newPS, LumaflyKnight.effectInfo.particleSystemInfo);
+                    LumaflyKnight.setProps(newPS.main, LumaflyKnight.effectInfo.particleSystemMainInfo);
+                    LumaflyKnight.setProps(newPS.textureSheetAnimation, LumaflyKnight.effectInfo.particleSystemTextureSheetInfo);
+                    LumaflyKnight.setProps(targetRenderer, LumaflyKnight.effectInfo.rendererInfo);
+
+
+                    /*var newPS = target.GetComponent<ParticleSystem>();
+                    var main = newPS.main;
+                    main.startColor = LumaflyKnight.effectInfo.startColor;
+                    main.startSize = LumaflyKnight.effectInfo.startSize;
+                    main.startLifetime = LumaflyKnight.effectInfo.startLifetime;
+                    main.startSpeed = LumaflyKnight.effectInfo.startSpeed;
+                    //newPS.main = LumaflyKnight.effectInfo.mainModule;
+
+
+                    var targetRenderer = target.GetComponent<ParticleSystemRenderer>();
+                    targetRenderer.material = LumaflyKnight.effectInfo.material;
+                    targetRenderer.renderMode = LumaflyKnight.effectInfo.renderMode;
+                    targetRenderer.sortingLayerID = LumaflyKnight.effectInfo.sortingLayerID;*/
+
+                    target.transform.position = hero.transform.position;
+                    //newPS.Emit(1);
+                    newPS.Play();
+                }
+                catch(Exception e) {
+                    LumaflyKnight.Instance.LogError("" + e);
+                }
             }
         }
     }
