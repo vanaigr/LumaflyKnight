@@ -57,6 +57,7 @@ namespace LumaflyKnight {
         public bool countZombieBeamMiners = true;
         public bool countChandelier = true;
         public bool countSeerAssension = true;
+        public bool spawnLumaflies = true;
     }
 
     public class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
@@ -306,6 +307,11 @@ namespace LumaflyKnight {
                                     if(data.add(sname, path, type)) {
                                         hitCount += countIncrease(type);
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                        if(type == 4 && globalSettings.spawnLumaflies) {
+                                            for(var i = 0; i < 5; i++) {
+                                                showEffect(obj.transform.position + new Vector3((i - 2) * 0.5f, -7, 0));
+                                            }
+                                        }
                                     }
                                 };
                             }
@@ -322,6 +328,20 @@ namespace LumaflyKnight {
                                 }
                             } 
                             else {
+                                if(type == 2 && globalSettings.spawnLumaflies) {
+                                    // Thanks Peeka.
+                                    // "I figured out why those don't, the Corpse component on those has the landEffects
+                                    // field set to null so it doesn't do anything with the Land Effects child"
+                                    var corpse = obj.GetComponentInChildren<Corpse>(true);
+                                    if(corpse != null) {
+                                        var target = corpse.gameObject.transform.Find("Land Effects");
+                                        if(target != null) {
+                                            var fi = corpse.GetType().GetField("landEffects", BindingFlags.Instance | BindingFlags.NonPublic);
+                                            fi.SetValue(corpse, target.gameObject);
+                                        }
+                                    }
+                                }
+
                                 obj.GetComponent<HealthManager>().OnDeath += () => {
                                     if(data.add(sname, path, type)) {
                                         hitCount += countIncrease(type);
@@ -342,6 +362,9 @@ namespace LumaflyKnight {
                                     if(data.add(sname, path, type)) {
                                         hitCount += countIncrease(type);
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                        if(type == 5 && globalSettings.spawnLumaflies) {
+                                            showEffect(obj.transform.position);
+                                        }
                                     }
                                 };
                             }
@@ -626,6 +649,15 @@ namespace LumaflyKnight {
                 () => ind(globalSettings.countSeerAssension)
             ));
 
+            res.Add(new MenuEntry(
+                "Add extra lumafly effects", bools, "Adds freed effect to Crystallized Hustks, chandelier, and the wall.", 
+                (i) => {
+                    globalSettings.spawnLumaflies = i != 0;
+                    menu();
+                },
+                () => ind(globalSettings.spawnLumaflies)
+            ));
+
             return res;
         }
 
@@ -637,7 +669,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public override string GetVersion() => "6";
+        public override string GetVersion() => "7";
 
         static bool loadedItems;
         static bool loadedGlobalSettings;
@@ -797,10 +829,31 @@ namespace LumaflyKnight {
             public List<Obj> particleSystemInfo;
             public List<Obj> particleSystemMainInfo;
             public List<Obj> particleSystemTextureSheetInfo;
+            public List<Obj> particleSystemSizeOverLifetime;
             public List<Obj> rendererInfo;
         }
         public static EffectInfo effectInfo;
 
+        public static void showEffect(Vector3 position) {
+            try {
+                var target = new GameObject("", typeof(ParticleSystem), typeof(ParticleSystemRenderer));
+
+                var newPS = target.GetComponent<ParticleSystem>();
+                var targetRenderer = target.GetComponent<ParticleSystemRenderer>();
+
+                LumaflyKnight.setProps(newPS, LumaflyKnight.effectInfo.particleSystemInfo);
+                LumaflyKnight.setProps(newPS.main, LumaflyKnight.effectInfo.particleSystemMainInfo);
+                LumaflyKnight.setProps(newPS.textureSheetAnimation, LumaflyKnight.effectInfo.particleSystemTextureSheetInfo);
+                LumaflyKnight.setProps(newPS.sizeOverLifetime, LumaflyKnight.effectInfo.particleSystemSizeOverLifetime);
+                LumaflyKnight.setProps(targetRenderer, LumaflyKnight.effectInfo.rendererInfo);
+
+                target.transform.position = position;
+                newPS.Play();
+            }
+            catch(Exception e) {
+                if(LumaflyKnight.Instance != null) LumaflyKnight.Instance.LogError("Effect spawn failed");
+            }
+        }
         
         public IEnumerator doStuff(Dictionary<string, Dictionary<string, GameObject>> preloadedObjects) {
 #if EXTRACT
@@ -874,19 +927,20 @@ namespace LumaflyKnight {
             UnityEngine.Application.Quit(0);
             */
 
-            var e = effectInfo = new EffectInfo{ };
             try {
+                var e = effectInfo = new EffectInfo{ };
+
                 var source = preloadedObjects.First().Value.First().Value;
                 var sourcePS = source.GetComponent<ParticleSystem>();
                 e.particleSystemInfo = toProps(sourcePS);
                 e.particleSystemMainInfo = toProps(sourcePS.main);
                 e.particleSystemTextureSheetInfo = toProps(sourcePS.textureSheetAnimation);
+                e.particleSystemSizeOverLifetime = toProps(sourcePS.sizeOverLifetime);
                 e.rendererInfo = toProps(source.GetComponent<ParticleSystemRenderer>());
             }
             catch(Exception err) {
                 Log(err);
             }
-
 
             string listStr = null;
             using(var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("list")) {
@@ -998,23 +1052,7 @@ namespace LumaflyKnight {
                     LumaflyKnight.setProps(newPS.textureSheetAnimation, LumaflyKnight.effectInfo.particleSystemTextureSheetInfo);
                     LumaflyKnight.setProps(targetRenderer, LumaflyKnight.effectInfo.rendererInfo);
 
-
-                    /*var newPS = target.GetComponent<ParticleSystem>();
-                    var main = newPS.main;
-                    main.startColor = LumaflyKnight.effectInfo.startColor;
-                    main.startSize = LumaflyKnight.effectInfo.startSize;
-                    main.startLifetime = LumaflyKnight.effectInfo.startLifetime;
-                    main.startSpeed = LumaflyKnight.effectInfo.startSpeed;
-                    //newPS.main = LumaflyKnight.effectInfo.mainModule;
-
-
-                    var targetRenderer = target.GetComponent<ParticleSystemRenderer>();
-                    targetRenderer.material = LumaflyKnight.effectInfo.material;
-                    targetRenderer.renderMode = LumaflyKnight.effectInfo.renderMode;
-                    targetRenderer.sortingLayerID = LumaflyKnight.effectInfo.sortingLayerID;*/
-
                     target.transform.position = hero.transform.position;
-                    //newPS.Emit(1);
                     newPS.Play();
                 }
                 catch(Exception e) {
