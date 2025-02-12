@@ -27,6 +27,7 @@ using GlobalEnums;
 using static GameManager;
 using HutongGames.Utility;
 using UnityEngine.Assertions;
+using static Modding.IMenuMod;
 
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
@@ -58,7 +59,7 @@ namespace LumaflyKnight {
         public bool countSeerAssension = true;
     }
 
-    public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
+    public class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
 
         #if EXTRACT || TEST
@@ -226,10 +227,30 @@ namespace LumaflyKnight {
                 yield break;
             }
 
+            roomUpdate();
+        }
+
+        void roomUpdate() {
+            if(!loadedItems) {
+                Log("Should not happen: roomUpdate() #1");
+                return;
+            }            
+            if(!countedAll) {
+                Log("Should not happen: roomUpdate() #2");
+                return;
+            }
+            if(!countedDone) {
+                Log("Should not happen: roomUpdate() #3");
+                return;
+            }
+            
+            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();            
+            var sname = s.name;
+
             Dictionary<string, Type> objTypes;
             if(!data.itemType.TryGetValue(s.name, out objTypes)) {
                 Ui.getUi()?.UpdateStats(0, 0, data.totalHit, data.totalCount);
-                yield break;
+                return;
             }
 
             var hitCount = 0;
@@ -515,20 +536,9 @@ namespace LumaflyKnight {
 
             data.done = ni;
 
-            int totalHit = 0;
-            foreach(var scene in data.done) {
-                Dictionary<string, Type> vs;
-                if(!data.itemType.TryGetValue(scene.Key, out vs)) continue;
-
-                foreach(var path in scene.Value) {
-                    Type type;
-                    if(!vs.TryGetValue(path, out type)) continue;
-                    totalHit += countIncrease(type.type);
-                }
-            }
-
-
-            data.totalHit = totalHit;
+            loadedLocalSettings = true;
+            countedDone = false;
+            refresh();
         }
 
         public DoneItems OnSaveLocal() => new DoneItems{ items2 = data.done };
@@ -537,6 +547,9 @@ namespace LumaflyKnight {
 
        public void OnLoadGlobal(GlobalSettings s) {
             globalSettings = s;
+            loadedGlobalSettings = true;
+            countedAll = false;
+            refresh();
         }
 
         public GlobalSettings OnSaveGlobal() {
@@ -554,6 +567,63 @@ namespace LumaflyKnight {
             }
         }
 
+        public bool ToggleButtonInsideMenu { get { return true; } }
+
+        static string on = "ON";
+        static string off = "OFF";
+        static string[] bools = { off, on };
+
+        int ind(bool v) => v ? 1 : 0;
+
+        void menu() {
+            countedAll = false;
+            countedDone = false;
+            refresh();
+        }
+
+        public List<MenuEntry> GetMenuData(MenuEntry? toggleButtonEntry) {
+            var res  = new List<MenuEntry>();
+
+            res.Add(new MenuEntry(
+                "Permanent release", bools, "Keep poles broken and enemies dead if they have lumaflies.", 
+                (i) => {
+                    globalSettings.permanentLumaflyRelease = i != 0;
+                    menu();
+                },
+                () => ind(globalSettings.permanentLumaflyRelease)
+            ));
+
+            res.Add(new MenuEntry(
+                "Count Crystallized Husks", bools, "With beams. Their lumafly just disappears on death.", 
+                (i) => {
+                    globalSettings.countZombieBeamMiners = i != 0;
+                    menu();
+                },
+                () => ind(globalSettings.countZombieBeamMiners)
+            ));
+
+            res.Add(new MenuEntry(
+                "Count chandelier", bools, "Watcher Knights chandelier and the wall before it. Lumaflies just disappear.", 
+                (i) => {
+                    globalSettings.countChandelier = i != 0;
+                    menu();
+                },
+                () => ind(globalSettings.countChandelier)
+            ));
+
+            res.Add(new MenuEntry(
+                "Count Seer assension", bools, "The 2400 essence check.", 
+                (i) => {
+                    globalSettings.countSeerAssension = i != 0;
+                    menu();
+                },
+                () => ind(globalSettings.countSeerAssension)
+            ));
+
+            return res;
+        }
+
+
         public void processAll(GameObject it, Action<GameObject> action) {
             action(it);
             for(int i = 0; i < it.transform.childCount; i++) {
@@ -562,6 +632,106 @@ namespace LumaflyKnight {
         }
 
         public override string GetVersion() => "6";
+
+        static bool loadedItems;
+        static bool loadedGlobalSettings;
+        static bool loadedLocalSettings;
+        static bool countedDone;
+        static bool countedAll;
+
+        void refresh() {
+            if(!loadedItems) {
+                Log("Shouldn't happen: refresh()");
+                return;
+            }
+
+            if(loadedGlobalSettings && !countedAll) {
+                var itemType = new Dictionary<string, Dictionary<string, Type>>();
+                var totalCount = 0;
+
+                try {
+                    foreach (var it in data.allItems) {
+                        var v = it.Value;
+                        var res = new Dictionary<string, Type>();
+
+                        foreach(var p in it.Value.lamps) {
+                            totalCount += countIncrease(0);
+                            res.Add(p.Key, new Type{ type = 0, data = p.Value });
+                        }
+                        foreach(var p in it.Value.enemies) {
+                            totalCount += countIncrease(1);
+                            res.Add(p.Key, new Type{ type = 1, data = p.Value });
+                        }
+                        if(globalSettings.countZombieBeamMiners) {
+                            foreach (var p in it.Value.beamMiners) {
+                                totalCount += countIncrease(2);
+                                res.Add(p.Key, new Type{ type = 2, data = p.Value });
+                            }
+                        }
+                        foreach (var p in it.Value.chests) {
+                            totalCount += countIncrease(3);
+                            res.Add(p.Key, new Type{ type = 3, data = p.Value });
+                        }
+                        if(globalSettings.countChandelier) {
+                            foreach (var p in it.Value.chandeliers) {
+                                totalCount += countIncrease(4);
+                                res.Add(p.Key, new Type{ type = 4, data = p.Value });
+                            }
+                        }
+                        if(globalSettings.countChandelier) {
+                            foreach (var p in it.Value.lampsOnWalls) {
+                                totalCount += countIncrease(5);
+                                res.Add(p.Key, new Type{ type = 5, data = p.Value });
+                            }
+                        }
+
+                        itemType.Add(it.Key, res);
+                    }
+
+                    if(globalSettings.countSeerAssension) {
+                        Dictionary<string, Type> res;
+                        if(!itemType.TryGetValue(seerScene, out res)) {
+                            res = new Dictionary<string, Type>();
+                            itemType.Add(seerScene, res);
+                        }
+                        
+                        totalCount += countIncrease(6);
+                        res.Add(seer, new Type{ type = 6, data = new SpecialData{} });
+                    }
+                } catch(Exception e) {
+                    LogError("Died: " + e);
+                }
+
+                data.itemType = itemType;
+                data.totalCount = totalCount;
+
+                countedAll = true;
+                countedDone = false;
+            }
+
+            if(loadedLocalSettings && countedAll && !countedDone) {
+                int totalHit = 0;
+
+                foreach(var scene in data.done) {
+                    Dictionary<string, Type> vs;
+                    if(!data.itemType.TryGetValue(scene.Key, out vs)) continue;
+
+                    foreach(var path in scene.Value) {
+                        Type type;
+                        if(!vs.TryGetValue(path, out type)) continue;
+                        totalHit += countIncrease(type.type);
+                    }
+                }
+
+                data.totalHit = totalHit;
+                countedDone = true;
+            }
+
+            if(countedAll && countedDone && GameManager.instance != null) {
+                // If outside the game, nothing will happen anyway
+                roomUpdate();
+            }
+        }
 
         #if EXTRACT
         public class Anyception : Exception {
@@ -663,65 +833,10 @@ namespace LumaflyKnight {
                 s.Read(arr, 0, arr.Length);
                 listStr = System.Text.Encoding.UTF8.GetString(arr);
             }
-            data.allItems = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);
-            try {
-                // Global settings should be loaded by now...
-                var itemType = new Dictionary<string, Dictionary<string, Type>>();
-
-                var totalCount = 0;
-                foreach (var it in data.allItems) {
-                    var v = it.Value;
-                    var res = new Dictionary<string, Type>();
-
-                    foreach(var p in it.Value.lamps) {
-                        totalCount += countIncrease(0);
-                        res.Add(p.Key, new Type{ type = 0, data = p.Value });
-                    }
-                    foreach(var p in it.Value.enemies) {
-                        totalCount += countIncrease(1);
-                        res.Add(p.Key, new Type{ type = 1, data = p.Value });
-                    }
-                    if(globalSettings.countZombieBeamMiners) {
-                        foreach (var p in it.Value.beamMiners) {
-                            totalCount += countIncrease(2);
-                            res.Add(p.Key, new Type{ type = 2, data = p.Value });
-                        }
-                    }
-                    foreach (var p in it.Value.chests) {
-                        totalCount += countIncrease(3);
-                        res.Add(p.Key, new Type{ type = 3, data = p.Value });
-                    }
-                    if(globalSettings.countChandelier) {
-                        foreach (var p in it.Value.chandeliers) {
-                            totalCount += countIncrease(4);
-                            res.Add(p.Key, new Type{ type = 4, data = p.Value });
-                        }
-                    }
-                    if(globalSettings.countChandelier) {
-                        foreach (var p in it.Value.lampsOnWalls) {
-                            totalCount += countIncrease(5);
-                            res.Add(p.Key, new Type{ type = 5, data = p.Value });
-                        }
-                    }
-
-                    itemType.Add(it.Key, res);
-                }
-
-                if(globalSettings.countSeerAssension) {
-                    Dictionary<string, Type> res;
-                    if(!itemType.TryGetValue(seerScene, out res)) {
-                        res = new Dictionary<string, Type>();
-                        itemType.Add(seerScene, res);
-                    }
-
-                    res.Add(seer, new Type{ type = 6, data = new SpecialData{} });
-                }
-
-                data.itemType = itemType;
-                data.totalCount = totalCount;
-            } catch(Exception e) {
-                LogError("Died: " + e);
-            }
+            data.allItems = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);      
+            loadedItems = true;
+            countedAll = false;
+            countedDone = false;
 
             RegisterUi.add();
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(prepareScene());
@@ -729,6 +844,8 @@ namespace LumaflyKnight {
             #if TEST
             GameManager.instance.gameObject.AddComponent<ModUpdate>();
             #endif
+
+            refresh();
 
             yield break;
         }
