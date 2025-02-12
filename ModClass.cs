@@ -1,4 +1,11 @@
-﻿using Modding;
+﻿// Update lumafly locations
+// Do at your own risk! Grants some achievements (e.g. speedrun).
+//#define EXTRACT
+
+// for debugging
+//#define TEST
+
+using Modding;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -23,6 +30,17 @@ using HutongGames.Utility;
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
 
+
+
+
+#if EXTRACT
+namespace LumaflyKnight {
+    static class Constants {
+        public static string extractPath = ;
+    }
+}
+#endif
+
 namespace LumaflyKnight {
     public class DoneSceneObjects {
         public HashSet<string> lamps = new HashSet<string>();
@@ -43,7 +61,7 @@ namespace LumaflyKnight {
     public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
 
-        /*
+        #if EXTRACT
         public void reportAll(GameObject it, string indent)
         {
             Log(indent + "name: " + it.name + ", active=" + it.activeSelf + ", " + it.activeInHierarchy);
@@ -71,6 +89,7 @@ namespace LumaflyKnight {
             public List<GameObject> zombieMiners;
             public List<GameObject> zombieBeamMiners;
             public GameObject chandelier;
+
             //public List<GameObject> unbreakableLamps;
         }
 
@@ -118,7 +137,7 @@ namespace LumaflyKnight {
         class LumaflyReleaseInfo {
             public GameObject root;
             public bool chest;
-        };
+        }
 
         LumaflyReleaseInfo canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants) {
             var p = it.transform.parent;
@@ -149,7 +168,7 @@ namespace LumaflyKnight {
                 return canReleaseLumafly(p.gameObject, possibleRemnants);
             }
         }
-        */
+        #endif
 
         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -276,7 +295,7 @@ namespace LumaflyKnight {
             Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
         }
 
-        /*
+        #if EXTRACT
         public static string path(GameObject obj) {
             string path = "/" + obj.name;
             while (obj.transform.parent != null) {
@@ -339,7 +358,7 @@ namespace LumaflyKnight {
                 chandeliers = chandeliers,
             };
         }
-        */
+        #endif
 
         public struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
@@ -486,7 +505,7 @@ namespace LumaflyKnight {
 
         public override string GetVersion() => "5";
 
-        /*
+        #if EXTRACT
         public class Anyception : Exception {
             public dynamic payload;
             public Anyception(dynamic payload) : base() { 
@@ -506,12 +525,10 @@ namespace LumaflyKnight {
             RenderTexture.ReleaseTemporary(temporary);
             return texture2D;
         }
-        */
+        #endif
 
         public IEnumerator doStuff() {
-            /*
-            // Update lumafly locations
-            // Do at your own risk! Grants some achievements (e.g. speedrun).
+            #if EXTRACT
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
             var scenes = new Scene[sceneCount];
             Log("there's " + sceneCount + " scenes.");
@@ -540,10 +557,10 @@ namespace LumaflyKnight {
             }
 
             var resS = Newtonsoft.Json.JsonConvert.SerializeObject(result);
-            File.WriteAllText(path, resS);
+            File.WriteAllText(Constants.extractPath, resS);
 
             UnityEngine.Application.Quit(0);
-            */
+            #endif
 
             /*
             // Extract lumafly icon
@@ -635,7 +652,9 @@ namespace LumaflyKnight {
             RegisterUi.add();
             UnityEngine.SceneManagement.SceneManager.activeSceneChanged += (_, _) => GameManager.instance.StartCoroutine(prepareScene());
 
-            //GameManager.instance.gameObject.AddComponent<ModUpdate>();
+            #if TEST
+            GameManager.instance.gameObject.AddComponent<ModUpdate>();
+            #endif
 
             yield break;
         }
@@ -658,7 +677,7 @@ namespace LumaflyKnight {
         }
     }
 
-    /*
+    #if TEST
     class ModUpdate : MonoBehaviour {
         int curRoomI = 0;
         string[] scenes = LumaflyKnight.Instance.data.allItems.Keys.ToArray();
@@ -709,7 +728,7 @@ namespace LumaflyKnight {
             }
         }
     }
-    */
+    #endif
 
     class Ui : MonoBehaviour {
         GameObject geoSprite = null;
