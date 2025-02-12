@@ -17,8 +17,8 @@ What counts as containing lumaflies:
 - Ascending the Seer (if `countSeerAssension` is set).
 
 Crystallised husks, the Watcher Knights chandelier and wall contain but don't release lumaflies.
-Nevertheless they are counted by default. Set the corresponding flag to `false` in the mod's global 
-settings if you want to count them.
+By default, the mod counts them and adds lumafly release animations. If you want to disable animations
+set `spawnLumaflies` to false. If you don't want to count husks etc., set their flag to false.
 
 </details>
 
