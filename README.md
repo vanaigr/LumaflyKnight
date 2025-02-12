@@ -13,9 +13,12 @@ What counts as containing lumaflies:
 - Crystallised husks (if `countZombieBeamMiners` is set).
 - Empty Junk Pit chest.
 - Watcher Knights chandelier (if `countChandelier` is set).
+- The lamp on a breakable wall before Watcher Knights chandelier (if `countChandelier` is set).
+- Ascending the Seer (if `countSeerAssension` is set).
 
-Crystallised husks and the Watcher Knights chandelier don't release lumaflies, so they aren't counted by default.
-Set the corresponding flag to `true` in the mod's global settings if you want to count them.
+Crystallised husks, the Watcher Knights chandelier and wall contain but don't release lumaflies.
+Nevertheless they are counted by default. Set the corresponding flag to `false` in the mod's global 
+settings if you want to count them.
 
 </details>
 

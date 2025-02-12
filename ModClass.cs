@@ -26,17 +26,16 @@ using UnityEngine.Assertions.Must;
 using GlobalEnums;
 using static GameManager;
 using HutongGames.Utility;
+using UnityEngine.Assertions;
 
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
 
 
-
-
 #if EXTRACT
 namespace LumaflyKnight {
     static class Constants {
-        public static string extractPath = ;
+        public static string extractPath = "C:\\Users\\Artem\\Downloads\\HKMODS\\LumaflyKnight\\res\\list.json";
     }
 }
 #endif
@@ -54,17 +53,18 @@ namespace LumaflyKnight {
 
     public class GlobalSettings {
         public bool permanentLumaflyRelease = true;
-        public bool countZombieBeamMiners = false;
-        public bool countChandelier = false;
+        public bool countZombieBeamMiners = true;
+        public bool countChandelier = true;
+        public bool countSeerAssension = true;
     }
 
     public class LumaflyKnight : Mod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
 
-        #if EXTRACT
+        #if EXTRACT || TEST
         public void reportAll(GameObject it, string indent)
         {
-            Log(indent + "name: " + it.name + ", active=" + it.activeSelf + ", " + it.activeInHierarchy);
+            Log(indent + "name: '" + it.name + "', active=" + it.activeSelf + ", " + it.activeInHierarchy);
             Log(indent + " components:");
             var cs = it.GetComponents<Component>();
             for(int i = 0; i < cs.Length; i++) {
@@ -79,6 +79,7 @@ namespace LumaflyKnight {
         public void reportAllCurrentScene() {
             var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var rs = s.GetRootGameObjects();
+            Log("Scene name is: '" + s.name + "'");
             for(var i = 0; i < rs.Length; i++) {
                 reportAll(rs[i], "");
             }
@@ -89,6 +90,8 @@ namespace LumaflyKnight {
             public List<GameObject> zombieMiners;
             public List<GameObject> zombieBeamMiners;
             public GameObject chandelier;
+             // some breakable walls have lumaflies. record all and filter later
+            public List<GameObject> lamps;
 
             //public List<GameObject> unbreakableLamps;
         }
@@ -115,6 +118,7 @@ namespace LumaflyKnight {
                     cl.zombieBeamMiners.Add(it);
                 }
             }
+            else if(it.name.Contains("lamp_bug")) cl.lamps.Add(it);
             //else if(s("lamp_01")) cl.unbreakableLamps.Add(it);
             //else if(s("lamp_02")) cl.unbreakableLamps.Add(it);
             //else if(s("lamp_01_glows")) cl.unbreakableLamps.Add(it);
@@ -168,6 +172,23 @@ namespace LumaflyKnight {
                 return canReleaseLumafly(p.gameObject, possibleRemnants);
             }
         }
+
+        class BreakableWallInfo {
+            public GameObject wall;
+        }
+
+        BreakableWallInfo isOnBreakableWall(GameObject it) {
+            var cur = it.transform.parent;
+            while(cur != null) {
+                if(cur.name.StartsWith("Breakable Wall")) {
+                    return new BreakableWallInfo { wall = cur.gameObject };
+                }
+                cur = cur.transform.parent;
+            }
+
+            return null;
+        }
+
         #endif
 
         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -262,7 +283,7 @@ namespace LumaflyKnight {
                                 };
                             }
                         }
-                        else {
+                        else if(type == 1 || type == 2) {
                             if(obj.name == "Zombie Myla") {
                                 var obj2 = find2(s, "/Miner");
                                 if(obj2 != null && obj2.activeInHierarchy) continue;
@@ -282,6 +303,25 @@ namespace LumaflyKnight {
                                 };
                             }
                         }
+                        else if(type == 5 || type == 6) {
+                            if(!obj.activeInHierarchy) {
+                                if(data.add(sname, path, type)) {
+                                    hitCount += countIncrease(type);
+                                }
+                            }
+                            else {
+                                var u = obj.AddComponent<UpdateWhenInactive>();
+                                u.onDisable += (_, _) => {
+                                    if(data.add(sname, path, type)) {
+                                        hitCount += countIncrease(type);
+                                        Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                    }
+                                };
+                            }
+                        }
+                        else {
+                            throw new Exception("Unreachable");
+                        }
                     }
                 }
                 catch(Exception e) {
@@ -295,7 +335,7 @@ namespace LumaflyKnight {
             Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
         }
 
-        #if EXTRACT
+        #if EXTRACT || TEST
         public static string path(GameObject obj) {
             string path = "/" + obj.name;
             while (obj.transform.parent != null) {
@@ -311,11 +351,13 @@ namespace LumaflyKnight {
             var beamMiners = new Dictionary<string, EnemyData>();
             var chests = new Dictionary<string, SpecialData>();
             var chandeliers = new Dictionary<string, SpecialData>();
+            var lampsOnWalls = new Dictionary<string, LampData>();
 
             var lumas = new ContainLumafly { 
                 bugEscape = new List<GameObject>(),
                 zombieMiners = new List<GameObject>(), 
                 zombieBeamMiners = new List<GameObject>(),
+                lamps = new List<GameObject>(),
             };
             
             var rs = s.GetRootGameObjects();
@@ -350,29 +392,42 @@ namespace LumaflyKnight {
                 beamMiners.Add(path(l), new EnemyData());
             }
 
+            for(var i = 0; i < lumas.lamps.Count; i++) {
+                var l = lumas.lamps[i];
+                var info = isOnBreakableWall(l);
+                if(info == null) continue;
+                lampsOnWalls.Add(path(l), new LampData { brk = path(info.wall) });
+            }
+
             return new SceneObjects{ 
                 lamps = lamps,
                 enemies = enemies,
                 beamMiners = beamMiners,
                 chests = chests,
                 chandeliers = chandeliers,
+                lampsOnWalls = lampsOnWalls,
             };
         }
         #endif
+
+        static string seerScene = "RestingGrounds_07";
+        static string seer = "/Dream Moth/Dream Dialogue";
 
         public struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
         }
         public struct SpecialData {}
-
         public struct EnemyData {}
 
-        public  class SceneObjects {
+        public class SceneObjects {
             public Dictionary<string, LampData> lamps;
             public Dictionary<string, EnemyData> enemies;
             public Dictionary<string, EnemyData> beamMiners;
             public Dictionary<string, SpecialData> chests;
             public Dictionary<string, SpecialData> chandeliers;
+            // BREAKABLE walls
+            public Dictionary<string, LampData> lampsOnWalls;
+            public SpecialData seer;
         }
 
         public struct Type {
@@ -382,7 +437,10 @@ namespace LumaflyKnight {
 
         public static int countIncrease(int type) {
             // the chest has 9 lumaflies
-            return type == 3 ? 9 : 1;
+            if(type == 3) return 9;
+            // chandelier has 5
+            if(type == 4) return 5;
+            return 1;
         }
 
         public struct Data {
@@ -503,7 +561,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public override string GetVersion() => "5";
+        public override string GetVersion() => "6";
 
         #if EXTRACT
         public class Anyception : Exception {
@@ -546,7 +604,7 @@ namespace LumaflyKnight {
                     LogError("Error: " + e);
                     yield break;
                 }
-                if(sr.lamps.Count > 0 || sr.enemies.Count > 0 || sr.beamMiners.Count > 0 || sr.chests.Count > 0 || sr.chandeliers.Count > 0) {
+                if(sr.lamps.Count > 0 || sr.enemies.Count > 0 || sr.beamMiners.Count > 0 || sr.chests.Count > 0 || sr.chandeliers.Count > 0 || sr.lampsOnWalls.Count > 0) {
                     result.Add(s.name, sr);
                 }
                 UnityEngine.SceneManagement.SceneManager.UnloadScene(i);
@@ -639,8 +697,24 @@ namespace LumaflyKnight {
                             res.Add(p.Key, new Type{ type = 4, data = p.Value });
                         }
                     }
+                    if(globalSettings.countChandelier) {
+                        foreach (var p in it.Value.lampsOnWalls) {
+                            totalCount += countIncrease(5);
+                            res.Add(p.Key, new Type{ type = 5, data = p.Value });
+                        }
+                    }
 
                     itemType.Add(it.Key, res);
+                }
+
+                if(globalSettings.countSeerAssension) {
+                    Dictionary<string, Type> res;
+                    if(!itemType.TryGetValue(seerScene, out res)) {
+                        res = new Dictionary<string, Type>();
+                        itemType.Add(seerScene, res);
+                    }
+
+                    res.Add(seer, new Type{ type = 6, data = new SpecialData{} });
                 }
 
                 data.itemType = itemType;
@@ -674,6 +748,13 @@ namespace LumaflyKnight {
         public event EventHandler onEnable;
         public void OnEnable() {
             onEnable?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    class UpdateWhenInactive : MonoBehaviour {
+        public event EventHandler onDisable;
+        public void OnDisable() {
+            onDisable?.Invoke(this, EventArgs.Empty);
         }
     }
 
