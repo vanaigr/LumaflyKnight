@@ -3,7 +3,7 @@
 //#define EXTRACT
 
 // for debugging
-#define TEST
+//#define TEST
 
 using Modding;
 using System;
@@ -32,14 +32,11 @@ using static Modding.IMenuMod;
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
 
-
-#if EXTRACT
-namespace LumaflyKnight {
+/*namespace LumaflyKnight {
     static class Constants {
-        public static string extractPath = "C:\\Users\\Artem\\Downloads\\HKMODS\\LumaflyKnight\\res\\list.json";
+        public static string extractPath = "";
     }
-}
-#endif
+}*/
 
 namespace LumaflyKnight {
     public class DoneSceneObjects {
