@@ -74,6 +74,17 @@ namespace LumaflyKnight {
             var cs = it.GetComponents<Component>();
             for(int i = 0; i < cs.Length; i++) {
                 Log(indent + "  " + cs[i].GetType().Name);
+                /*if(cs[i].GetType() == typeof(ParticleSystem)) {
+                    var p = (cs[i] as ParticleSystem);
+                    Log(indent + "    rate: " + p.emission.rateOverTime.constantMin + ", " + p.emission.rateOverTime.constantMax);
+                    Log(indent + "    main: " + p.main.maxParticles);
+                    var bs = new ParticleSystem.Burst[p.emission.burstCount];
+                    p.emission.GetBursts(bs);
+                    for(var j = 0; j < bs.Length; j++) {
+                        var b = bs[j];
+                        Log(indent + "    burst " + j + ": " + b.minCount + ", " + b.maxCount + ", " + b.cycleCount);
+                    }
+                }*/
             }
             Log(indent + " children:");
             for(int i = 0; i < it.transform.childCount; i++) {
@@ -264,14 +275,15 @@ namespace LumaflyKnight {
                 var path = pair.Key;
                 var typ = pair.Value;
                 var type = typ.type;
+                var increase = countIncrease(typ);
 
-                possibleCount += countIncrease(type);
+                possibleCount += increase;
 
                 try {
                     var obj = find2(s, path);
 
-                    if(data.has(sname, path, type)) {
-                        hitCount += countIncrease(type);
+                    if(data.has(sname, path)) {
+                        hitCount += increase;
 
                         if(globalSettings.permanentLumaflyRelease) {
                             if(type == 0) {
@@ -294,15 +306,15 @@ namespace LumaflyKnight {
                         if(type == 0 || type == 3 || type == 4) {
                             // should it be activeInHierarchy or activeSelf?
                             if(obj.activeInHierarchy) {
-                                if(data.add(sname, path, type)) {
-                                    hitCount += countIncrease(type);
+                                if(data.add(sname, path, typ)) {
+                                    hitCount += increase;
                                 }
                             }
                             else {
                                 var u = obj.AddComponent<UpdateWhenActive>();
                                 u.onEnable += (_, _) => {
-                                    if(data.add(sname, path, type)) {
-                                        hitCount += countIncrease(type);
+                                    if(data.add(sname, path, typ)) {
+                                        hitCount += increase;
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
                                         if(type == 4 && globalSettings.spawnLumaflies) {
                                             for(var i = 0; i < 5; i++) {
@@ -320,8 +332,8 @@ namespace LumaflyKnight {
                             }
 
                             if(!obj.activeInHierarchy) {
-                                if(data.add(sname, path, type)) {
-                                    hitCount += countIncrease(type);
+                                if(data.add(sname, path, typ)) {
+                                    hitCount += increase;
                                 }
                             }
                             else {
@@ -340,8 +352,8 @@ namespace LumaflyKnight {
                                 }
 
                                 obj.GetComponent<HealthManager>().OnDeath += () => {
-                                    if(data.add(sname, path, type)) {
-                                        hitCount += countIncrease(type);
+                                    if(data.add(sname, path, typ)) {
+                                        hitCount += increase;
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
                                     }
                                 };
@@ -349,15 +361,15 @@ namespace LumaflyKnight {
                         }
                         else if(type == 5 || type == 6) {
                             if(!obj.activeInHierarchy) {
-                                if(data.add(sname, path, type)) {
-                                    hitCount += countIncrease(type);
+                                if(data.add(sname, path, typ)) {
+                                    hitCount += increase;
                                 }
                             }
                             else {
                                 var u = obj.AddComponent<UpdateWhenInactive>();
                                 u.onDisable += (_, _) => {
-                                    if(data.add(sname, path, type)) {
-                                        hitCount += countIncrease(type);
+                                    if(data.add(sname, path, typ)) {
+                                        hitCount += increase;
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
                                         if(type == 5 && globalSettings.spawnLumaflies) {
                                             showEffect(obj.transform.position);
@@ -375,7 +387,7 @@ namespace LumaflyKnight {
                     LogError("Died on object " + s.name + " " + path + ": " + e);
                     // This can happen if the object is permanently removed, but the game crashed
                     // and our data wasn't saved, but game data was.
-                    if(data.add(sname, path, type)) hitCount += countIncrease(type);
+                    if(data.add(sname, path, typ)) hitCount += increase;
                 }
             }
 
@@ -396,7 +408,7 @@ namespace LumaflyKnight {
             var lamps = new Dictionary<string, LampData>();
             var enemies = new Dictionary<string, EnemyData>();
             var beamMiners = new Dictionary<string, EnemyData>();
-            var chests = new Dictionary<string, SpecialData>();
+            var chests = new Dictionary<string, ChestData>();
             var chandeliers = new Dictionary<string, SpecialData>();
             var lampsOnWalls = new Dictionary<string, LampData>();
 
@@ -417,11 +429,13 @@ namespace LumaflyKnight {
                 var l = lumas.bugEscape[i];
                 var info = canReleaseLumafly(l, new HashSet<GameObject>());
                 if(info != null) {
+                    var ps = l.GetComponent<ParticleSystem>();
+                    var particlesC = ps.main.maxParticles;
                     if(info.chest) {
-                        chests.Add(path(l), new SpecialData());
+                        chests.Add(path(l), new ChestData { count = particlesC });
                     }
                     else {
-                        lamps.Add(path(l), new LampData{ brk = path(info.root) });
+                        lamps.Add(path(l), new LampData{ brk = path(info.root), count = particlesC });
                     }
                 }
             }
@@ -462,6 +476,10 @@ namespace LumaflyKnight {
 
         public struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
+            public int count; // number of lumaflies in a lamp
+        }
+        public struct ChestData {
+            public int count;
         }
         public struct SpecialData {}
         public struct EnemyData {}
@@ -470,7 +488,7 @@ namespace LumaflyKnight {
             public Dictionary<string, LampData> lamps;
             public Dictionary<string, EnemyData> enemies;
             public Dictionary<string, EnemyData> beamMiners;
-            public Dictionary<string, SpecialData> chests;
+            public Dictionary<string, ChestData> chests;
             public Dictionary<string, SpecialData> chandeliers;
             // BREAKABLE walls
             public Dictionary<string, LampData> lampsOnWalls;
@@ -482,11 +500,12 @@ namespace LumaflyKnight {
             public object data;
         }
 
-        public static int countIncrease(int type) {
-            // the chest has 9 lumaflies
-            if(type == 3) return 9;
+        public static int countIncrease(Type it) {
+            if(it.type == 0) return ((LampData)it.data).count;
+             // chest has 9 lumaflies. For some reason the data reports 99...
+            if(it.type == 3) return 9;
             // chandelier has 5
-            if(type == 4) return 5;
+            if(it.type == 4) return 5;
             return 1;
         }
 
@@ -508,7 +527,7 @@ namespace LumaflyKnight {
                 return type;
             }
 
-            public bool has(string scene, string path, int type) {
+            public bool has(string scene, string path) {
                 if(done == null) {
                     LumaflyKnight.Instance.LogError("Should not happen 4");
                     return false;
@@ -519,7 +538,7 @@ namespace LumaflyKnight {
                 return its.Contains(path);
             }
 
-            public bool add(string scene, string path, int type) {
+            public bool add(string scene, string path, Type type) {
                 if(done == null) {
                     LumaflyKnight.Instance.LogError("Should not happen 2");
                     return false;
@@ -689,35 +708,23 @@ namespace LumaflyKnight {
                         var v = it.Value;
                         var res = new Dictionary<string, Type>();
 
-                        foreach(var p in it.Value.lamps) {
-                            totalCount += countIncrease(0);
-                            res.Add(p.Key, new Type{ type = 0, data = p.Value });
-                        }
-                        foreach(var p in it.Value.enemies) {
-                            totalCount += countIncrease(1);
-                            res.Add(p.Key, new Type{ type = 1, data = p.Value });
-                        }
+                        var add = (int type, string k, object v) => {
+                            var data = new Type { type = type, data = v };
+                            totalCount += countIncrease(data);
+                            res.Add(k, data);
+                        };
+
+                        foreach(var p in it.Value.lamps) add(0, p.Key, p.Value);
+                        foreach(var p in it.Value.enemies) add(1, p.Key, p.Value);
                         if(globalSettings.countZombieBeamMiners) {
-                            foreach (var p in it.Value.beamMiners) {
-                                totalCount += countIncrease(2);
-                                res.Add(p.Key, new Type{ type = 2, data = p.Value });
-                            }
+                            foreach (var p in it.Value.beamMiners) add(2, p.Key, p.Value);
                         }
-                        foreach (var p in it.Value.chests) {
-                            totalCount += countIncrease(3);
-                            res.Add(p.Key, new Type{ type = 3, data = p.Value });
+                        foreach (var p in it.Value.chests) add(3, p.Key, p.Value);
+                        if(globalSettings.countChandelier) {
+                            foreach (var p in it.Value.chandeliers) add(4, p.Key, p.Value);
                         }
                         if(globalSettings.countChandelier) {
-                            foreach (var p in it.Value.chandeliers) {
-                                totalCount += countIncrease(4);
-                                res.Add(p.Key, new Type{ type = 4, data = p.Value });
-                            }
-                        }
-                        if(globalSettings.countChandelier) {
-                            foreach (var p in it.Value.lampsOnWalls) {
-                                totalCount += countIncrease(5);
-                                res.Add(p.Key, new Type{ type = 5, data = p.Value });
-                            }
+                            foreach (var p in it.Value.lampsOnWalls) add(5, p.Key, p.Value);
                         }
 
                         itemType.Add(it.Key, res);
@@ -729,9 +736,10 @@ namespace LumaflyKnight {
                             res = new Dictionary<string, Type>();
                             itemType.Add(seerScene, res);
                         }
-                        
-                        totalCount += countIncrease(6);
-                        res.Add(seer, new Type{ type = 6, data = new SpecialData{} });
+
+                        var data = new Type { type = 6, data = new SpecialData{} };
+                        totalCount += countIncrease(data);
+                        res.Add(seer, data);
                     }
                 } catch(Exception e) {
                     LogError("Died: " + e);
@@ -754,7 +762,7 @@ namespace LumaflyKnight {
                     foreach(var path in scene.Value) {
                         Type type;
                         if(!vs.TryGetValue(path, out type)) continue;
-                        totalHit += countIncrease(type.type);
+                        totalHit += countIncrease(type);
                     }
                 }
 
@@ -913,7 +921,7 @@ namespace LumaflyKnight {
                     // texture atlas. Cannot be cropped here because none of the sprite's rect's have the right coords...
                     var array = duplicateTexture(sp.texture).EncodeToPNG();
                     using (FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write)) {
-				        fileStream.Write(array, 0, array.Length);
+                        fileStream.Write(array, 0, array.Length);
                     }
                     Log("Extracted texture successfully");
                     break;
