@@ -63,7 +63,7 @@ namespace LumaflyKnight {
         public override List<(string, string)> GetPreloadNames() {
             return new List<(string, string)> {
                 ("Room_Town_Stag_Station", "station_pole/Stag_Pole_Tall_Break (2)/lamp_bug_escape (7)"),
-            };   
+            };
         }
 
         #if EXTRACT || TEST
@@ -163,7 +163,7 @@ namespace LumaflyKnight {
                 for(; i < list.Length; i++) {
                     if (possibleRemnants.Contains(list[i])) break;
                 }
-                
+
                 if(i != list.Length && p.gameObject.activeInHierarchy) {
                     return new LumaflyReleaseInfo{ root = p.gameObject };
                 }
@@ -219,7 +219,7 @@ namespace LumaflyKnight {
             return null;
         }
 
-        public IEnumerator prepareScene() { 
+        public IEnumerator prepareScene() {
             var s0 = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var s0name = s0.name;
             yield return null;
@@ -238,7 +238,7 @@ namespace LumaflyKnight {
             if(!loadedItems) {
                 Log("Should not happen: roomUpdate() #1");
                 return;
-            }            
+            }
             if(!countedAll) {
                 Log("Should not happen: roomUpdate() #2");
                 return;
@@ -247,8 +247,8 @@ namespace LumaflyKnight {
                 Log("Should not happen: roomUpdate() #3");
                 return;
             }
-            
-            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();            
+
+            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var sname = s.name;
 
             Dictionary<string, Type> objTypes;
@@ -323,7 +323,7 @@ namespace LumaflyKnight {
                                 if(data.add(sname, path, type)) {
                                     hitCount += countIncrease(type);
                                 }
-                            } 
+                            }
                             else {
                                 if(type == 2 && globalSettings.spawnLumaflies) {
                                     // Thanks Peeka.
@@ -400,13 +400,13 @@ namespace LumaflyKnight {
             var chandeliers = new Dictionary<string, SpecialData>();
             var lampsOnWalls = new Dictionary<string, LampData>();
 
-            var lumas = new ContainLumafly { 
+            var lumas = new ContainLumafly {
                 bugEscape = new List<GameObject>(),
-                zombieMiners = new List<GameObject>(), 
+                zombieMiners = new List<GameObject>(),
                 zombieBeamMiners = new List<GameObject>(),
                 lamps = new List<GameObject>(),
             };
-            
+
             var rs = s.GetRootGameObjects();
             for(var i = 0; i < rs.Length; i++) {
                 addAll(rs[i], lumas);
@@ -416,7 +416,7 @@ namespace LumaflyKnight {
             for(var i = 0; i < lumas.bugEscape.Count; i++) {
                 var l = lumas.bugEscape[i];
                 var info = canReleaseLumafly(l, new HashSet<GameObject>());
-                if(info != null) { 
+                if(info != null) {
                     if(info.chest) {
                         chests.Add(path(l), new SpecialData());
                     }
@@ -425,7 +425,7 @@ namespace LumaflyKnight {
                     }
                 }
             }
-            if(lumas.chandelier != null) { 
+            if(lumas.chandelier != null) {
                 chandeliers.Add(path(lumas.chandelier), new SpecialData());
             }
 
@@ -433,7 +433,7 @@ namespace LumaflyKnight {
                 var l = lumas.zombieMiners[i];
                 enemies.Add(path(l), new EnemyData());
             }
-            
+
             for(var i = 0; i < lumas.zombieBeamMiners.Count; i++) {
                 var l = lumas.zombieBeamMiners[i];
                 beamMiners.Add(path(l), new EnemyData());
@@ -446,7 +446,7 @@ namespace LumaflyKnight {
                 lampsOnWalls.Add(path(l), new LampData { brk = path(info.wall) });
             }
 
-            return new SceneObjects{ 
+            return new SceneObjects{
                 lamps = lamps,
                 enemies = enemies,
                 beamMiners = beamMiners,
@@ -524,7 +524,7 @@ namespace LumaflyKnight {
                     LumaflyKnight.Instance.LogError("Should not happen 2");
                     return false;
                 }
-                
+
                 HashSet<string> its;
                 if(!done.TryGetValue(scene, out its)) {
                     its = new HashSet<string>();
@@ -611,7 +611,7 @@ namespace LumaflyKnight {
             var res  = new List<MenuEntry>();
 
             res.Add(new MenuEntry(
-                "Permanent release", bools, "Keep poles broken and enemies dead if they have lumaflies.", 
+                "Permanent release", bools, "Keep poles broken and enemies dead if they have lumaflies.",
                 (i) => {
                     globalSettings.permanentLumaflyRelease = i != 0;
                     menu();
@@ -620,7 +620,7 @@ namespace LumaflyKnight {
             ));
 
             res.Add(new MenuEntry(
-                "Count Crystallized Husks", bools, "With beams. Their lumafly just disappears on death.", 
+                "Count Crystallized Husks", bools, "With beams. Their lumafly just disappears on death.",
                 (i) => {
                     globalSettings.countZombieBeamMiners = i != 0;
                     menu();
@@ -629,7 +629,7 @@ namespace LumaflyKnight {
             ));
 
             res.Add(new MenuEntry(
-                "Count chandelier", bools, "Watcher Knights chandelier and the wall before it. Lumaflies just disappear.", 
+                "Count chandelier", bools, "Watcher Knights chandelier and the wall before it. Lumaflies just disappear.",
                 (i) => {
                     globalSettings.countChandelier = i != 0;
                     menu();
@@ -638,7 +638,7 @@ namespace LumaflyKnight {
             ));
 
             res.Add(new MenuEntry(
-                "Count Seer assension", bools, "The 2400 essence check.", 
+                "Count Seer assension", bools, "The 2400 essence check.",
                 (i) => {
                     globalSettings.countSeerAssension = i != 0;
                     menu();
@@ -647,7 +647,7 @@ namespace LumaflyKnight {
             ));
 
             res.Add(new MenuEntry(
-                "Add extra lumafly effects", bools, "Adds freed effect to Crystallized Hustks, chandelier, and the wall.", 
+                "Add extra lumafly effects", bools, "Adds freed effect to Crystallized Hustks, chandelier, and the wall.",
                 (i) => {
                     globalSettings.spawnLumaflies = i != 0;
                     menu();
@@ -771,11 +771,11 @@ namespace LumaflyKnight {
         #if EXTRACT
         public class Anyception : Exception {
             public dynamic payload;
-            public Anyception(dynamic payload) : base() { 
-                this.payload = payload; 
+            public Anyception(dynamic payload) : base() {
+                this.payload = payload;
             }
         }
-        
+
         static Texture2D duplicateTexture(Texture2D source) {
             RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
             Graphics.Blit(source, temporary);
@@ -802,7 +802,7 @@ namespace LumaflyKnight {
             var res = new List<Obj>();
 
             System.Type type = src.GetType();
-            System.Reflection.FieldInfo[] fields = type.GetFields(); 
+            System.Reflection.FieldInfo[] fields = type.GetFields();
             foreach(var field in fields) {
                 res.Add(new Obj { fi = field, value = field.GetValue(src) });
             }
@@ -851,7 +851,7 @@ namespace LumaflyKnight {
                 if(LumaflyKnight.Instance != null) LumaflyKnight.Instance.LogError("Effect spawn failed");
             }
         }
-        
+
         public IEnumerator doStuff(Dictionary<string, Dictionary<string, GameObject>> preloadedObjects) {
 #if EXTRACT
             var sceneCount = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
@@ -945,7 +945,7 @@ namespace LumaflyKnight {
                 s.Read(arr, 0, arr.Length);
                 listStr = System.Text.Encoding.UTF8.GetString(arr);
             }
-            data.allItems = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);      
+            data.allItems = JsonConvert.DeserializeObject<Dictionary<string, SceneObjects>>(listStr);
             loadedItems = true;
             countedAll = false;
             countedDone = false;
@@ -991,7 +991,7 @@ namespace LumaflyKnight {
     class ModUpdate : MonoBehaviour {
         int curRoomI = 0;
         string[] scenes = LumaflyKnight.Instance.data.allItems.Keys.ToArray();
-        
+
         public void Update() {
             GameObject hero = GameManager.instance?.hero_ctrl?.gameObject;
             if (Input.GetKeyDown(KeyCode.Q)) {
@@ -1016,7 +1016,7 @@ namespace LumaflyKnight {
                for(var i = 0; i < rs.Length; i++) {
                     LumaflyKnight.Instance.processAll(rs[i], insert);
                }
-                  
+
                LumaflyKnight.Instance.Log("Objects near the player:");
                for(var i = 0; i < list.Count; i++) {
                     var it = list[i].Obj;
@@ -1030,7 +1030,7 @@ namespace LumaflyKnight {
                }
                for(var i = 0; i < list.Count; i++) {
                     GameObject.Destroy(list[i].Obj);
-                } 
+                }
             }
 
             if (Input.GetKeyDown(KeyCode.P)) {
@@ -1091,7 +1091,7 @@ namespace LumaflyKnight {
                 TextMesh textMesh = counter.GetComponent<TextMesh>();
                 textMesh.alignment = TextAlignment.Left;
                 textMesh.anchor = TextAnchor.MiddleLeft;
-                
+
 
                 textMesh.font = geoTextMesh.font;
                 textMesh.fontSize = geoTextMesh.fontSize;
@@ -1117,7 +1117,7 @@ namespace LumaflyKnight {
                     renderer.sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0f, 0.5f), Math.Max(texture.width, texture.height));
                 }
                 renderer.sortingOrder = 30000;
-                
+
                 sprite.transform.parent = geoSprite.transform.parent.transform;
                 sprite.transform.localScale = new Vector3(bounds.size.y, bounds.size.y, 1);
                 sprite.transform.localPosition = geoSprite.transform.localPosition;
@@ -1149,7 +1149,7 @@ namespace LumaflyKnight {
         public void UpdateStats(int hits, int count, int totalHits, int totalCount) {
             try {
                 counter.GetComponent<TextMesh>().text = hits + "/" + count + " | " + totalHits + "/" + totalCount;
-            } 
+            }
             catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
         }
 
@@ -1174,7 +1174,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public static void add() { 
+        public static void add() {
             GameManager.instance.gameObject.AddComponent<RegisterUi>();
         }
     }
