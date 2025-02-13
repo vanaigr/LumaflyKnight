@@ -27,4 +27,6 @@ This can be disabled by setting `"permanentLumaflyRelease": false` in the mod's 
 
 All config options mentioned above are also available in the in-game menu at Options > Mods > LumaflyKnight Options. 
 
+To check which lumaflies remain, you can upload the `user`#`.modded.json` (locaded in the dame directory as your save file) to https://vanaigr.github.io/LumaflyMap
+
 Loosely based on [GrassyKnight](https://github.com/itsjohncs/GrassyKnight).
