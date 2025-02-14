@@ -94,15 +94,15 @@ namespace LumaflyKnight {
 
         void roomUpdate() {
             if(!loadedItems) {
-                Log("Should not happen: roomUpdate() #1");
+                Log("Should not happen: roomUpdate() #1: " + Environment.StackTrace);
                 return;
             }
             if(!countedAll) {
-                Log("Should not happen: roomUpdate() #2");
+                Log("Should not happen: roomUpdate() #2: " + Environment.StackTrace);
                 return;
             }
             if(!countedDone) {
-                Log("Should not happen: roomUpdate() #3");
+                Log("Should not happen: roomUpdate() #3: " + Environment.StackTrace);
                 return;
             }
 
@@ -278,7 +278,7 @@ namespace LumaflyKnight {
             return 1;
         }
 
-        public struct Data {
+        public class Data {
             public int totalHit;
             public int totalCount;
 
@@ -286,7 +286,7 @@ namespace LumaflyKnight {
             // Doesn't contain an item if it is disabled by settings.
             public Dictionary<string, Dictionary<string, Type>> itemType;
 
-            public Dictionary<string, HashSet<string>> done;
+            public Dictionary<string, HashSet<string>> done = new Dictionary<string, HashSet<string>>();
 
             public Type? getType(string scene, string path) {
                 Dictionary<string, Type> a;
@@ -298,7 +298,7 @@ namespace LumaflyKnight {
 
             public bool has(string scene, string path) {
                 if(done == null) {
-                    LumaflyKnight.Instance.LogError("Should not happen 4");
+                    LumaflyKnight.Instance.LogError("Should not happen 4: " + Environment.StackTrace);
                     return false;
                 }
 
@@ -309,7 +309,7 @@ namespace LumaflyKnight {
 
             public bool add(string scene, string path, Type type) {
                 if(done == null) {
-                    LumaflyKnight.Instance.LogError("Should not happen 2");
+                    LumaflyKnight.Instance.LogError("Should not happen 2: " + Environment.StackTrace);
                     return false;
                 }
 
@@ -330,7 +330,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public Data data;
+        public Data data = new Data();
 
         public void OnLoadLocal(DoneItems s) {
             var ni = new Dictionary<string, HashSet<string>>();
@@ -445,14 +445,15 @@ namespace LumaflyKnight {
         public override string GetVersion() => "9";
 
         static bool loadedItems;
-        static bool loadedGlobalSettings;
-        static bool loadedLocalSettings;
+        // they are (and must be) set to default values if not loaded normally
+        static bool loadedGlobalSettings = true;
+        static bool loadedLocalSettings = true;
         static bool countedDone;
         static bool countedAll;
 
         void refresh() {
             if(!loadedItems) {
-                Log("Shouldn't happen: refresh()");
+                Log("Shouldn't happen: refresh(): " + Environment.StackTrace);
                 return;
             }
 
