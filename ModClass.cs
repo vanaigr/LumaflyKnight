@@ -49,6 +49,7 @@ namespace LumaflyKnight {
 
         public override List<(string, string)> GetPreloadNames() {
             return new List<(string, string)> {
+                // to get its escape particle system
                 ("Room_Town_Stag_Station", "station_pole/Stag_Pole_Tall_Break (2)/lamp_bug_escape (7)"),
             };
         }
@@ -150,7 +151,6 @@ namespace LumaflyKnight {
                     }
                     else {
                         if(type == 0 || type == 3 || type == 4) {
-                            // should it be activeInHierarchy or activeSelf?
                             if(obj.activeInHierarchy) {
                                 if(data.add(sname, path, typ)) {
                                     hitCount += increase;
@@ -164,7 +164,7 @@ namespace LumaflyKnight {
                                         Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
                                         if(type == 4 && globalSettings.spawnLumaflies) {
                                             for(var i = 0; i < 5; i++) {
-                                                showEffect(obj.transform.position + new Vector3((i - 2) * 0.5f, -7, 0));
+                                                showEffect(obj.transform.position + new Vector3((i - 2) * 0.7f, -7, 0));
                                             }
                                         }
                                     }
@@ -248,7 +248,7 @@ namespace LumaflyKnight {
             public int count; // number of lumaflies in a lamp
         }
         public struct ChestData {
-            public int count;
+            public int count; // turns out this is useless. It says 99, but 9 actually release
         }
         public struct SpecialData {}
         public struct EnemyData {}
@@ -376,7 +376,7 @@ namespace LumaflyKnight {
         static string off = "OFF";
         static string[] bools = { off, on };
 
-        int ind(bool v) => v ? 1 : 0;
+        static int ind(bool v) => v ? 1 : 0;
 
         void menu() {
             countedAll = false;
@@ -435,7 +435,6 @@ namespace LumaflyKnight {
             return res;
         }
 
-
         public void processAll(GameObject it, Action<GameObject> action) {
             action(it);
             for(int i = 0; i < it.transform.childCount; i++) {
@@ -443,7 +442,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public override string GetVersion() => "7";
+        public override string GetVersion() => "9";
 
         static bool loadedItems;
         static bool loadedGlobalSettings;
@@ -669,7 +668,7 @@ namespace LumaflyKnight {
             */
 
             try {
-                var e = effectInfo = new EffectInfo{ };
+                var e = effectInfo = new EffectInfo{};
 
                 var source = preloadedObjects.First().Value.First().Value;
                 var sourcePS = source.GetComponent<ParticleSystem>();
@@ -708,12 +707,12 @@ namespace LumaflyKnight {
 
         public override void Initialize(Dictionary<string, Dictionary<string, GameObject>> preloadedObjects)
         {
-            Log("Initializing");
+            Log("Initialize() {");
 
             LumaflyKnight.Instance = this;
             GameManager.instance.StartCoroutine(doStuff(preloadedObjects));
 
-            Log("Initialized");
+            Log("Initialize() }");
         }
     }
 
