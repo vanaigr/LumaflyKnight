@@ -10,23 +10,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UObject = UnityEngine.Object;
-
-using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.ComponentModel.Design.Serialization;
-using HutongGames.PlayMaker.Actions;
 using System.Linq;
 using System.Reflection;
-using Modding.Converters;
-using System.IO;
 using Newtonsoft.Json;
-using IL.InControl;
-using UnityEngine.Assertions.Must;
-using GlobalEnums;
-using static GameManager;
-using HutongGames.Utility;
-using UnityEngine.Assertions;
 using static Modding.IMenuMod;
 
 // Zombie miner - Husk Miner
@@ -57,7 +44,7 @@ namespace LumaflyKnight {
         public bool spawnLumaflies = true;
     }
 
-    public class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
+    public partial class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
 
         public override List<(string, string)> GetPreloadNames() {
@@ -65,147 +52,6 @@ namespace LumaflyKnight {
                 ("Room_Town_Stag_Station", "station_pole/Stag_Pole_Tall_Break (2)/lamp_bug_escape (7)"),
             };
         }
-
-        #if EXTRACT || TEST
-        public void reportAll(GameObject it, string indent)
-        {
-            Log(indent + "name: '" + it.name + "', active=" + it.activeSelf + ", " + it.activeInHierarchy);
-            Log(indent + " components:");
-            var cs = it.GetComponents<Component>();
-            for(int i = 0; i < cs.Length; i++) {
-                Log(indent + "  " + cs[i].GetType().Name);
-                /*if(cs[i].GetType() == typeof(ParticleSystem)) {
-                    var p = (cs[i] as ParticleSystem);
-                    Log(indent + "    rate: " + p.emission.rateOverTime.constantMin + ", " + p.emission.rateOverTime.constantMax);
-                    Log(indent + "    main: " + p.main.maxParticles);
-                    var bs = new ParticleSystem.Burst[p.emission.burstCount];
-                    p.emission.GetBursts(bs);
-                    for(var j = 0; j < bs.Length; j++) {
-                        var b = bs[j];
-                        Log(indent + "    burst " + j + ": " + b.minCount + ", " + b.maxCount + ", " + b.cycleCount);
-                    }
-                }*/
-            }
-            Log(indent + " children:");
-            for(int i = 0; i < it.transform.childCount; i++) {
-                reportAll(it.transform.GetChild(i).gameObject, indent + "  ");
-            }
-        }
-
-        public void reportAllCurrentScene() {
-            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            var rs = s.GetRootGameObjects();
-            Log("Scene name is: '" + s.name + "'");
-            for(var i = 0; i < rs.Length; i++) {
-                reportAll(rs[i], "");
-            }
-        }
-
-        public class ContainLumafly {
-            public List<GameObject> bugEscape;
-            public List<GameObject> zombieMiners;
-            public List<GameObject> zombieBeamMiners;
-            public GameObject chandelier;
-             // some breakable walls have lumaflies. record all and filter later
-            public List<GameObject> lamps;
-
-            //public List<GameObject> unbreakableLamps;
-        }
-
-        public void addAll(GameObject it, ContainLumafly cl) {
-            var s = (string name) => it.name.StartsWith(name);
-
-            if(s("lamp_bug_escape")) {
-                // why remove the object when you can delete the particle system, right?
-                if(it.GetComponent<ParticleSystem>() != null) {
-                    cl.bugEscape.Add(it);
-                }
-            }
-            else if(it.name == "chandelier_broken") {
-                cl.chandelier = it;
-            }
-            else if(s("Zombie Miner")) cl.zombieMiners.Add(it);
-            else if(s("Zombie Myla")) cl.zombieMiners.Add(it);
-            else if(s("Zombie Beam Miner")) {
-                // Mines_32 /Battle Scene/Zombie Beam Miner Rematch
-                // GG_Crystal_Guardian_2 /Battle Scene/Zombie Beam Miner Rematch
-                // But crystal guardian 2 doesn't have lumaflies
-                if(!it.name.Contains("Rematch")) {
-                    cl.zombieBeamMiners.Add(it);
-                }
-            }
-            else if(it.name.Contains("lamp_bug")) cl.lamps.Add(it);
-            //else if(s("lamp_01")) cl.unbreakableLamps.Add(it);
-            //else if(s("lamp_02")) cl.unbreakableLamps.Add(it);
-            //else if(s("lamp_01_glows")) cl.unbreakableLamps.Add(it);
-            //else if(s("lamp_02_glows")) cl.unbreakableLamps.Add(it);
-
-            for(var i = 0; i < it.transform.childCount; i++) {
-                addAll(it.transform.GetChild(i).gameObject, cl);
-            }
-        }
-
-        public static FieldInfo breakableRemnantParts;
-
-        public GameObject[] getRemnantParts(Breakable it) {
-            if(breakableRemnantParts == null) {
-                breakableRemnantParts = typeof(Breakable).GetField("debrisParts", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            }
-            return ((List<GameObject>)breakableRemnantParts.GetValue(it)).ToArray();
-        }
-
-        class LumaflyReleaseInfo {
-            public GameObject root;
-            public bool chest;
-        }
-
-        LumaflyReleaseInfo canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants) {
-            var p = it.transform.parent;
-            if(p == null) {
-                return null;
-            }
-
-            possibleRemnants.Add(it);
-
-            var b = p.GetComponent<Breakable>();
-            if(b) {
-                var list = getRemnantParts(b);
-                var i = 0;
-                for(; i < list.Length; i++) {
-                    if (possibleRemnants.Contains(list[i])) break;
-                }
-
-                if(i != list.Length && p.gameObject.activeInHierarchy) {
-                    return new LumaflyReleaseInfo{ root = p.gameObject };
-                }
-
-                return null;
-            }
-            else if(p.gameObject.name.StartsWith("Chest")) {
-                return new LumaflyReleaseInfo { chest = true };
-            }
-            else {
-                return canReleaseLumafly(p.gameObject, possibleRemnants);
-            }
-        }
-
-        class BreakableWallInfo {
-            public GameObject wall;
-        }
-
-        BreakableWallInfo isOnBreakableWall(GameObject it) {
-            var cur = it.transform.parent;
-            while(cur != null) {
-                if(cur.name.StartsWith("Breakable Wall")) {
-                    return new BreakableWallInfo { wall = cur.gameObject };
-                }
-                cur = cur.transform.parent;
-            }
-
-            return null;
-        }
-
-        #endif
 
         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -394,83 +240,6 @@ namespace LumaflyKnight {
             Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
         }
 
-        #if EXTRACT || TEST
-        public static string path(GameObject obj) {
-            string path = "/" + obj.name;
-            while (obj.transform.parent != null) {
-                obj = obj.transform.parent.gameObject;
-                path = "/" + obj.name + path;
-            }
-            return path;
-        }
-
-        public SceneObjects saveSceneObjects(Scene s) {
-            var lamps = new Dictionary<string, LampData>();
-            var enemies = new Dictionary<string, EnemyData>();
-            var beamMiners = new Dictionary<string, EnemyData>();
-            var chests = new Dictionary<string, ChestData>();
-            var chandeliers = new Dictionary<string, SpecialData>();
-            var lampsOnWalls = new Dictionary<string, LampData>();
-
-            var lumas = new ContainLumafly {
-                bugEscape = new List<GameObject>(),
-                zombieMiners = new List<GameObject>(),
-                zombieBeamMiners = new List<GameObject>(),
-                lamps = new List<GameObject>(),
-            };
-
-            var rs = s.GetRootGameObjects();
-            for(var i = 0; i < rs.Length; i++) {
-                addAll(rs[i], lumas);
-            }
-            Log("  Count is " + lumas.bugEscape.Count + " " + lumas.zombieMiners.Count + " " + lumas.zombieBeamMiners.Count + " " + (lumas.chandelier != null));
-
-            for(var i = 0; i < lumas.bugEscape.Count; i++) {
-                var l = lumas.bugEscape[i];
-                var info = canReleaseLumafly(l, new HashSet<GameObject>());
-                if(info != null) {
-                    var ps = l.GetComponent<ParticleSystem>();
-                    var particlesC = ps.main.maxParticles;
-                    if(info.chest) {
-                        chests.Add(path(l), new ChestData { count = particlesC });
-                    }
-                    else {
-                        lamps.Add(path(l), new LampData{ brk = path(info.root), count = particlesC });
-                    }
-                }
-            }
-            if(lumas.chandelier != null) {
-                chandeliers.Add(path(lumas.chandelier), new SpecialData());
-            }
-
-            for(var i = 0; i < lumas.zombieMiners.Count; i++) {
-                var l = lumas.zombieMiners[i];
-                enemies.Add(path(l), new EnemyData());
-            }
-
-            for(var i = 0; i < lumas.zombieBeamMiners.Count; i++) {
-                var l = lumas.zombieBeamMiners[i];
-                beamMiners.Add(path(l), new EnemyData());
-            }
-
-            for(var i = 0; i < lumas.lamps.Count; i++) {
-                var l = lumas.lamps[i];
-                var info = isOnBreakableWall(l);
-                if(info == null) continue;
-                lampsOnWalls.Add(path(l), new LampData { brk = path(info.wall) });
-            }
-
-            return new SceneObjects{
-                lamps = lamps,
-                enemies = enemies,
-                beamMiners = beamMiners,
-                chests = chests,
-                chandeliers = chandeliers,
-                lampsOnWalls = lampsOnWalls,
-            };
-        }
-        #endif
-
         static string seerScene = "RestingGrounds_07";
         static string seer = "/Dream Moth/Dream Dialogue";
 
@@ -599,17 +368,6 @@ namespace LumaflyKnight {
 
         public GlobalSettings OnSaveGlobal() {
             return globalSettings;
-        }
-
-        public struct Entry {
-            public float SqDist;
-            public GameObject Obj;
-
-            public Entry(float sqDist, GameObject obj)
-            {
-                SqDist = sqDist;
-                Obj = obj;
-            }
         }
 
         public bool ToggleButtonInsideMenu { get { return true; } }
@@ -775,28 +533,6 @@ namespace LumaflyKnight {
                 roomUpdate();
             }
         }
-
-        #if EXTRACT
-        public class Anyception : Exception {
-            public dynamic payload;
-            public Anyception(dynamic payload) : base() {
-                this.payload = payload;
-            }
-        }
-
-        static Texture2D duplicateTexture(Texture2D source) {
-            RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-            Graphics.Blit(source, temporary);
-            RenderTexture active = RenderTexture.active;
-            RenderTexture.active = temporary;
-            Texture2D texture2D = new Texture2D(source.width, source.height);
-            texture2D.ReadPixels(new Rect(0f, 0f, (float)temporary.width, (float)temporary.height), 0, 0);
-            texture2D.Apply();
-            RenderTexture.active = active;
-            RenderTexture.ReleaseTemporary(temporary);
-            return texture2D;
-        }
-        #endif
 
         public class Obj {
             public FieldInfo fi;
@@ -995,7 +731,255 @@ namespace LumaflyKnight {
         }
     }
 
+    public partial class LumaflyKnight {
+        #if EXTRACT || TEST
+        public void reportAll(GameObject it, string indent)
+        {
+            Log(indent + "name: '" + it.name + "', active=" + it.activeSelf + ", " + it.activeInHierarchy);
+            Log(indent + " components:");
+            var cs = it.GetComponents<Component>();
+            for(int i = 0; i < cs.Length; i++) {
+                Log(indent + "  " + cs[i].GetType().Name);
+                /*if(cs[i].GetType() == typeof(ParticleSystem)) {
+                    var p = (cs[i] as ParticleSystem);
+                    Log(indent + "    rate: " + p.emission.rateOverTime.constantMin + ", " + p.emission.rateOverTime.constantMax);
+                    Log(indent + "    main: " + p.main.maxParticles);
+                    var bs = new ParticleSystem.Burst[p.emission.burstCount];
+                    p.emission.GetBursts(bs);
+                    for(var j = 0; j < bs.Length; j++) {
+                        var b = bs[j];
+                        Log(indent + "    burst " + j + ": " + b.minCount + ", " + b.maxCount + ", " + b.cycleCount);
+                    }
+                }*/
+            }
+            Log(indent + " children:");
+            for(int i = 0; i < it.transform.childCount; i++) {
+                reportAll(it.transform.GetChild(i).gameObject, indent + "  ");
+            }
+        }
+
+        public void reportAllCurrentScene() {
+            var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var rs = s.GetRootGameObjects();
+            Log("Scene name is: '" + s.name + "'");
+            for(var i = 0; i < rs.Length; i++) {
+                reportAll(rs[i], "");
+            }
+        }
+
+        public class ContainLumafly {
+            public List<GameObject> bugEscape;
+            public List<GameObject> zombieMiners;
+            public List<GameObject> zombieBeamMiners;
+            public GameObject chandelier;
+             // some breakable walls have lumaflies. record all and filter later
+            public List<GameObject> lamps;
+
+            //public List<GameObject> unbreakableLamps;
+        }
+
+        public void addAll(GameObject it, ContainLumafly cl) {
+            var s = (string name) => it.name.StartsWith(name);
+
+            if(s("lamp_bug_escape")) {
+                // why remove the object when you can delete the particle system, right?
+                if(it.GetComponent<ParticleSystem>() != null) {
+                    cl.bugEscape.Add(it);
+                }
+            }
+            else if(it.name == "chandelier_broken") {
+                cl.chandelier = it;
+            }
+            else if(s("Zombie Miner")) cl.zombieMiners.Add(it);
+            else if(s("Zombie Myla")) cl.zombieMiners.Add(it);
+            else if(s("Zombie Beam Miner")) {
+                // Mines_32 /Battle Scene/Zombie Beam Miner Rematch
+                // GG_Crystal_Guardian_2 /Battle Scene/Zombie Beam Miner Rematch
+                // But crystal guardian 2 doesn't have lumaflies
+                if(!it.name.Contains("Rematch")) {
+                    cl.zombieBeamMiners.Add(it);
+                }
+            }
+            else if(it.name.Contains("lamp_bug")) cl.lamps.Add(it);
+            //else if(s("lamp_01")) cl.unbreakableLamps.Add(it);
+            //else if(s("lamp_02")) cl.unbreakableLamps.Add(it);
+            //else if(s("lamp_01_glows")) cl.unbreakableLamps.Add(it);
+            //else if(s("lamp_02_glows")) cl.unbreakableLamps.Add(it);
+
+            for(var i = 0; i < it.transform.childCount; i++) {
+                addAll(it.transform.GetChild(i).gameObject, cl);
+            }
+        }
+
+        public static FieldInfo breakableRemnantParts;
+
+        public GameObject[] getRemnantParts(Breakable it) {
+            if(breakableRemnantParts == null) {
+                breakableRemnantParts = typeof(Breakable).GetField("debrisParts", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+            return ((List<GameObject>)breakableRemnantParts.GetValue(it)).ToArray();
+        }
+
+        class LumaflyReleaseInfo {
+            public GameObject root;
+            public bool chest;
+        }
+
+        LumaflyReleaseInfo canReleaseLumafly(GameObject it, HashSet<GameObject> possibleRemnants) {
+            var p = it.transform.parent;
+            if(p == null) {
+                return null;
+            }
+
+            possibleRemnants.Add(it);
+
+            var b = p.GetComponent<Breakable>();
+            if(b) {
+                var list = getRemnantParts(b);
+                var i = 0;
+                for(; i < list.Length; i++) {
+                    if (possibleRemnants.Contains(list[i])) break;
+                }
+
+                if(i != list.Length && p.gameObject.activeInHierarchy) {
+                    return new LumaflyReleaseInfo{ root = p.gameObject };
+                }
+
+                return null;
+            }
+            else if(p.gameObject.name.StartsWith("Chest")) {
+                return new LumaflyReleaseInfo { chest = true };
+            }
+            else {
+                return canReleaseLumafly(p.gameObject, possibleRemnants);
+            }
+        }
+
+        class BreakableWallInfo {
+            public GameObject wall;
+        }
+
+        BreakableWallInfo isOnBreakableWall(GameObject it) {
+            var cur = it.transform.parent;
+            while(cur != null) {
+                if(cur.name.StartsWith("Breakable Wall")) {
+                    return new BreakableWallInfo { wall = cur.gameObject };
+                }
+                cur = cur.transform.parent;
+            }
+
+            return null;
+        }
+
+                public static string path(GameObject obj) {
+            string path = "/" + obj.name;
+            while (obj.transform.parent != null) {
+                obj = obj.transform.parent.gameObject;
+                path = "/" + obj.name + path;
+            }
+            return path;
+        }
+
+        public SceneObjects saveSceneObjects(Scene s) {
+            var lamps = new Dictionary<string, LampData>();
+            var enemies = new Dictionary<string, EnemyData>();
+            var beamMiners = new Dictionary<string, EnemyData>();
+            var chests = new Dictionary<string, ChestData>();
+            var chandeliers = new Dictionary<string, SpecialData>();
+            var lampsOnWalls = new Dictionary<string, LampData>();
+
+            var lumas = new ContainLumafly {
+                bugEscape = new List<GameObject>(),
+                zombieMiners = new List<GameObject>(),
+                zombieBeamMiners = new List<GameObject>(),
+                lamps = new List<GameObject>(),
+            };
+
+            var rs = s.GetRootGameObjects();
+            for(var i = 0; i < rs.Length; i++) {
+                addAll(rs[i], lumas);
+            }
+            Log("  Count is " + lumas.bugEscape.Count + " " + lumas.zombieMiners.Count + " " + lumas.zombieBeamMiners.Count + " " + (lumas.chandelier != null));
+
+            for(var i = 0; i < lumas.bugEscape.Count; i++) {
+                var l = lumas.bugEscape[i];
+                var info = canReleaseLumafly(l, new HashSet<GameObject>());
+                if(info != null) {
+                    var ps = l.GetComponent<ParticleSystem>();
+                    var particlesC = ps.main.maxParticles;
+                    if(info.chest) {
+                        chests.Add(path(l), new ChestData { count = particlesC });
+                    }
+                    else {
+                        lamps.Add(path(l), new LampData{ brk = path(info.root), count = particlesC });
+                    }
+                }
+            }
+            if(lumas.chandelier != null) {
+                chandeliers.Add(path(lumas.chandelier), new SpecialData());
+            }
+
+            for(var i = 0; i < lumas.zombieMiners.Count; i++) {
+                var l = lumas.zombieMiners[i];
+                enemies.Add(path(l), new EnemyData());
+            }
+
+            for(var i = 0; i < lumas.zombieBeamMiners.Count; i++) {
+                var l = lumas.zombieBeamMiners[i];
+                beamMiners.Add(path(l), new EnemyData());
+            }
+
+            for(var i = 0; i < lumas.lamps.Count; i++) {
+                var l = lumas.lamps[i];
+                var info = isOnBreakableWall(l);
+                if(info == null) continue;
+                lampsOnWalls.Add(path(l), new LampData { brk = path(info.wall) });
+            }
+
+            return new SceneObjects{
+                lamps = lamps,
+                enemies = enemies,
+                beamMiners = beamMiners,
+                chests = chests,
+                chandeliers = chandeliers,
+                lampsOnWalls = lampsOnWalls,
+            };
+        }
+
+        static Texture2D duplicateTexture(Texture2D source) {
+            RenderTexture temporary = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+            Graphics.Blit(source, temporary);
+            RenderTexture active = RenderTexture.active;
+            RenderTexture.active = temporary;
+            Texture2D texture2D = new Texture2D(source.width, source.height);
+            texture2D.ReadPixels(new Rect(0f, 0f, (float)temporary.width, (float)temporary.height), 0, 0);
+            texture2D.Apply();
+            RenderTexture.active = active;
+            RenderTexture.ReleaseTemporary(temporary);
+            return texture2D;
+        }
+        #endif
+    }
+
     #if TEST
+    public struct Entry {
+        public float SqDist;
+        public GameObject Obj;
+
+        public Entry(float sqDist, GameObject obj)
+        {
+            SqDist = sqDist;
+            Obj = obj;
+        }
+    }
+
+    public class Anyception : Exception {
+        public dynamic payload;
+        public Anyception(dynamic payload) : base() {
+            this.payload = payload;
+        }
+    }
+
     class ModUpdate : MonoBehaviour {
         int curRoomI = 0;
         string[] scenes = LumaflyKnight.Instance.data.allItems.Keys.ToArray();
@@ -1003,14 +987,14 @@ namespace LumaflyKnight {
         public void Update() {
             GameObject hero = GameManager.instance?.hero_ctrl?.gameObject;
             if (Input.GetKeyDown(KeyCode.Q)) {
-               var list = new List<LumaflyKnight.Entry>();
+               var list = new List<Entry>();
 
                Action<GameObject> insert = (newObj) => {
                     var diff = (newObj.gameObject.transform.position - hero.transform.position);
                     var sqDist = diff.sqrMagnitude;
 
-                    var newEntry = new LumaflyKnight.Entry(sqDist, newObj);
-                    int index = list.BinarySearch(newEntry, Comparer<LumaflyKnight.Entry>.Create((a, b) => a.SqDist.CompareTo(b.SqDist)));
+                    var newEntry = new Entry(sqDist, newObj);
+                    int index = list.BinarySearch(newEntry, Comparer<Entry>.Create((a, b) => a.SqDist.CompareTo(b.SqDist)));
 
                     // If not found, BinarySearch returns a negative index that is the bitwise complement of the next larger element's index
                     if (index < 0) list.Add(newEntry);
@@ -1067,123 +1051,4 @@ namespace LumaflyKnight {
         }
     }
     #endif
-
-    class Ui : MonoBehaviour {
-        GameObject geoSprite = null;
-        GameObject geoText = null;
-        GameObject counter = null;
-        GameObject sprite = null;
-
-        public void Awake() {
-            try {
-                geoText = gameObject.transform.Find("Geo Text").gameObject;
-                geoSprite = gameObject.transform.Find("Geo Sprite").gameObject;
-
-                geoText.transform.localScale = geoText.transform.localScale * 0.6f;
-                geoSprite.transform.localScale = geoSprite.transform.localScale * 0.6f;
-
-                var bounds = geoSprite.GetComponent<Renderer>().bounds;
-                TextMesh geoTextMesh = geoText.GetComponent<TextMesh>();
-
-                geoTextMesh.alignment = TextAlignment.Left;
-                geoTextMesh.anchor = TextAnchor.MiddleLeft;
-
-                var pos = geoText.transform.position;
-                pos.x = bounds.max.x + bounds.size.x * 0.2f;
-                pos.y = bounds.center.y - bounds.size.y * 0.1f;
-                geoText.transform.position = pos;
-
-                counter = new GameObject("Lumafly counter", typeof(TextMesh), typeof(MeshRenderer));
-                counter.layer = geoText.layer;
-
-                TextMesh textMesh = counter.GetComponent<TextMesh>();
-                textMesh.alignment = TextAlignment.Left;
-                textMesh.anchor = TextAnchor.MiddleLeft;
-
-
-                textMesh.font = geoTextMesh.font;
-                textMesh.fontSize = geoTextMesh.fontSize;
-                textMesh.text = "Loading...";
-
-                MeshRenderer meshRenderer = counter.GetComponent<MeshRenderer>();
-                meshRenderer.material = textMesh.font.material;
-
-                counter.transform.parent = geoText.transform.parent.transform;
-                counter.transform.localScale = geoText.transform.localScale;
-                counter.transform.localPosition = geoText.transform.localPosition;
-
-                sprite = new GameObject("Lumafly counter sprite", typeof(SpriteRenderer));
-                sprite.layer = geoSprite.layer;
-                var renderer = sprite.GetComponent<SpriteRenderer>();
-
-                using(var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("lumafly.png")) {
-                    byte[] arr = new byte[s.Length];
-                    s.Read(arr, 0, arr.Length);
-
-                    Texture2D texture = new Texture2D(1, 1);
-                    texture.LoadImage(arr, true);
-                    renderer.sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0f, 0.5f), Math.Max(texture.width, texture.height));
-                }
-                renderer.sortingOrder = 30000;
-
-                sprite.transform.parent = geoSprite.transform.parent.transform;
-                sprite.transform.localScale = new Vector3(bounds.size.y, bounds.size.y, 1);
-                sprite.transform.localPosition = geoSprite.transform.localPosition;
-
-            } catch (Exception e) {
-                LumaflyKnight.Instance.Log("Error in Ui.Start() " + e);
-            }
-        }
-
-        public void Update() {
-            try {
-                var b = geoText.GetComponent<Renderer>().bounds;
-                var pos = sprite.transform.position;
-                pos.x = b.max.x + b.size.y * 0.5f;
-                sprite.transform.position = pos;
-                pos = sprite.transform.localPosition;
-                pos.x = Mathf.Ceil(pos.x * 3f) / 3f;
-                sprite.transform.localPosition = pos;
-
-                b = sprite.GetComponent<Renderer>().bounds;
-                pos = counter.transform.position;
-                pos.x = b.max.x + b.size.x * 0.2f;
-                counter.transform.position = pos;
-            } catch (System.Exception e) {
-                LumaflyKnight.Instance.Log("Error in Ui.Update()"  + e);
-            }
-        }
-
-        public void UpdateStats(int hits, int count, int totalHits, int totalCount) {
-            try {
-                counter.GetComponent<TextMesh>().text = hits + "/" + count + " | " + totalHits + "/" + totalCount;
-            }
-            catch(Exception e) { LumaflyKnight.Instance.LogError(e); }
-        }
-
-        public static Ui getUi() {
-            GameObject geoCounter = GameManager.instance?.hero_ctrl?.geoCounter?.gameObject;
-             if (geoCounter != null) {
-                var c = geoCounter.GetComponent<Ui>();
-                if(c == null) c = geoCounter.AddComponent<Ui>();
-
-                return c;
-             }
-             return null;
-        }
-    }
-
-    class RegisterUi : MonoBehaviour {
-        public void Update() {
-            try {
-                Ui.getUi();
-            } catch(Exception e) {
-                LumaflyKnight.Instance.LogError(e);
-            }
-        }
-
-        public static void add() {
-            GameManager.instance.gameObject.AddComponent<RegisterUi>();
-        }
-    }
 }
