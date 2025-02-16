@@ -18,6 +18,7 @@ using static Modding.IMenuMod;
 
 // Zombie miner - Husk Miner
 // Zombie beam miner - Crystallised Husk
+// Note: don't rely on objects becoming inactive. They do wnen exiting rooms
 
 /*namespace LumaflyKnight {
     static class Constants {
@@ -205,21 +206,56 @@ namespace LumaflyKnight {
                                 };
                             }
                         }
-                        else if(type == 5 || type == 6) {
-                            if(!obj.activeInHierarchy) {
+                        else if(type == 5) {
+                            var breakable = find2(s, ((LampData)typ.data).brk);
+                            var fsm = breakable.GetComponent<PlayMakerFSM>();
+
+                            if(fsm.FsmVariables.FindFsmBool("Activated").Value) {
                                 if(data.add(sname, path, typ)) {
                                     hitCount += increase;
                                 }
                             }
                             else {
-                                var u = obj.AddComponent<UpdateWhenInactive>();
-                                u.onDisable += (_, _) => {
-                                    if(data.add(sname, path, typ)) {
-                                        hitCount += increase;
-                                        Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
-                                        if(type == 5 && globalSettings.spawnLumaflies) {
-                                            showEffect(obj.transform.position);
+                                if(globalSettings.spawnLumaflies) {
+                                    obj.AddComponent<ReleaseLumaflyOnDestroy>();
+                                }
+
+                                var c = breakable.AddComponent<OnUpdate>();
+                                c.onUpdate += (_, _) => {
+                                    try {
+                                        if(fsm.FsmVariables.FindFsmBool("Activated").Value) {
+                                            // obj is deleted
+                                            if(data.add(sname, path, typ)) {
+                                                hitCount += increase;
+                                                Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                            }
                                         }
+                                    }
+                                    catch(Exception e) {
+                                        LumaflyKnight.Instance.LogError("Error: " + e);
+                                    }
+                                };
+                            }
+                        }
+                        else if(type == 6) {
+                            if(PlayerData.instance.mothDeparted) {
+                                if(data.add(sname, path, typ)) {
+                                    hitCount += increase;
+                                }
+                            }
+                            else {
+                                var c = obj.AddComponent<OnUpdate>();
+                                c.onUpdate += (_, _) => {
+                                    try {
+                                        if(PlayerData.instance.mothDeparted) {
+                                            if(data.add(sname, path, typ)) {
+                                                hitCount += increase;
+                                                Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                            }
+                                        }
+                                    }
+                                    catch(Exception e) {
+                                        LumaflyKnight.Instance.LogError("Error: " + e);
                                     }
                                 };
                             }
@@ -241,6 +277,7 @@ namespace LumaflyKnight {
         }
 
         static string seerScene = "RestingGrounds_07";
+        // should be changed to just "/Dream Moth" but it's now used in several places and in save files
         static string seer = "/Dream Moth/Dream Dialogue";
 
         public struct LampData {
@@ -442,7 +479,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public override string GetVersion() => "9";
+        public override string GetVersion() => "10";
 
         static bool loadedItems;
         // they are (and must be) set to default values if not loaded normally
@@ -453,7 +490,6 @@ namespace LumaflyKnight {
 
         void refresh() {
             if(!loadedItems) {
-                Log("Shouldn't happen: refresh(): " + Environment.StackTrace);
                 return;
             }
 
@@ -724,10 +760,16 @@ namespace LumaflyKnight {
         }
     }
 
-    class UpdateWhenInactive : MonoBehaviour {
-        public event EventHandler onDisable;
-        public void OnDisable() {
-            onDisable?.Invoke(this, EventArgs.Empty);
+    class OnUpdate : MonoBehaviour {
+        public event EventHandler onUpdate;
+        public void Update() {
+            onUpdate?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    class ReleaseLumaflyOnDestroy : MonoBehaviour { 
+        public void OnDestroy() {
+            LumaflyKnight.showEffect(gameObject.transform.position);
         }
     }
 
