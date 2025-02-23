@@ -1,7 +1,3 @@
-> [!WARNING]
-> The version on modlinks (v9) contains a bug where the Seer and chandelier wall are counted too early.
-> Download the v10 from the "Releases" page, which doesn't have this bug.
-
 # LumaflyKnight
 
 Hollow Knight mod for tracking how many lumaflies you've freed. The current room progress and overall progress are displayed next to the geo counter.
@@ -31,6 +27,6 @@ This can be disabled by setting `"permanentLumaflyRelease": false` in the mod's 
 
 All config options mentioned above are also available in the in-game menu at Options > Mods > LumaflyKnight Options.
 
-To check which lumaflies remain, you can upload the `user`#`.modded.json` (locaded in the dame directory as your save file) to https://vanaigr.github.io/LumaflyMap
+To check which lumaflies remain, you can upload the `user`#`.modded.json` (located in the dame directory as your save file) to https://vanaigr.github.io/LumaflyMap
 
 Loosely based on [GrassyKnight](https://github.com/itsjohncs/GrassyKnight).
