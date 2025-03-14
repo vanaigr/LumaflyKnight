@@ -4,6 +4,12 @@ Hollow Knight mod for tracking how many lumaflies you've freed. The current room
 
 ![image](https://github.com/user-attachments/assets/0066f7fc-a0e9-40d9-a3bf-371471221768)
 
+For full completion, see:
+
+[![YouTube](https://github.com/user-attachments/assets/4d67781d-aaa2-41f8-b4f7-d94519f67b99)](https://www.youtube.com/watch?v=E-heaRe68s4)
+
+https://www.youtube.com/watch?v=E-heaRe68s4
+
 What counts as containing lumaflies:
 
 <details>
