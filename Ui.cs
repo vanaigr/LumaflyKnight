@@ -9,24 +9,32 @@ namespace LumaflyKnight {
         GameObject counter = null;
         GameObject sprite = null;
 
+        static Vector3 topLeft(Bounds bounds) {
+            return new Vector3(bounds.min.x, bounds.max.y, 0);
+        }
+
         public void Awake() {
             try {
                 geoText = gameObject.transform.Find("Geo Text").gameObject;
                 geoSprite = gameObject.transform.Find("Geo Sprite").gameObject;
 
-                geoText.transform.localScale = geoText.transform.localScale * 0.6f;
-                geoSprite.transform.localScale = geoSprite.transform.localScale * 0.6f;
+                var beforePos = topLeft(geoSprite.GetComponent<Renderer>().bounds);
+                gameObject.transform.localScale = Vector3.one * 0.6f;
+                gameObject.transform.position = gameObject.transform.position 
+                    - (topLeft(geoSprite.GetComponent<Renderer>().bounds) - beforePos);
 
-                var bounds = geoSprite.GetComponent<Renderer>().bounds;
+                {
+                    var bounds = geoSprite.GetComponent<Renderer>().bounds;
+                    var pos = geoText.transform.position;
+                    pos.x = bounds.max.x + bounds.size.x * 0.2f;
+                    pos.y = bounds.center.y - bounds.size.y * 0.1f;
+                    geoText.transform.position = pos;
+                }
+
                 TextMesh geoTextMesh = geoText.GetComponent<TextMesh>();
 
                 geoTextMesh.alignment = TextAlignment.Left;
                 geoTextMesh.anchor = TextAnchor.MiddleLeft;
-
-                var pos = geoText.transform.position;
-                pos.x = bounds.max.x + bounds.size.x * 0.2f;
-                pos.y = bounds.center.y - bounds.size.y * 0.1f;
-                geoText.transform.position = pos;
 
                 counter = new GameObject("Lumafly counter", typeof(TextMesh), typeof(MeshRenderer));
                 counter.layer = geoText.layer;
@@ -38,13 +46,12 @@ namespace LumaflyKnight {
 
                 textMesh.font = geoTextMesh.font;
                 textMesh.fontSize = geoTextMesh.fontSize;
-                textMesh.text = "Error..?";
+                textMesh.text = "Loading...";
 
                 MeshRenderer meshRenderer = counter.GetComponent<MeshRenderer>();
                 meshRenderer.material = textMesh.font.material;
 
                 counter.transform.parent = geoText.transform.parent.transform;
-                counter.transform.localScale = geoText.transform.localScale;
                 counter.transform.localPosition = geoText.transform.localPosition;
 
                 sprite = new GameObject("Lumafly counter sprite", typeof(SpriteRenderer));
@@ -62,29 +69,51 @@ namespace LumaflyKnight {
                 renderer.sortingOrder = 30000;
 
                 sprite.transform.parent = geoSprite.transform.parent.transform;
-                sprite.transform.localScale = new Vector3(bounds.size.y, bounds.size.y, 1);
                 sprite.transform.localPosition = geoSprite.transform.localPosition;
 
-            } catch (Exception e) {
+                {
+                    var bounds = geoSprite.GetComponent<Renderer>().bounds;
+                    counter.transform.localScale = geoText.transform.localScale;
+                    sprite.transform.localScale = Vector3.one * 0.8f;
+                }
+            }
+            catch (Exception e) {
                 LumaflyKnight.Instance.Log("Error in Ui.Start() " + e);
             }
         }
 
         public void Update() {
             try {
-                var b = geoText.GetComponent<Renderer>().bounds;
-                var pos = sprite.transform.position;
-                pos.x = b.max.x + b.size.y * 0.5f;
-                sprite.transform.position = pos;
-                pos = sprite.transform.localPosition;
-                pos.x = Mathf.Ceil(pos.x * 3f) / 3f;
-                sprite.transform.localPosition = pos;
+                var grassSprite = gameObject.transform.Find("Grass Sprite");
+                if(grassSprite == null) {
+                    var b = geoText.GetComponent<Renderer>().bounds;
+                    var pos = sprite.transform.position;
+                    pos.x = b.max.x + b.size.y * 0.5f;
+                    sprite.transform.position = pos;
 
-                b = sprite.GetComponent<Renderer>().bounds;
-                pos = counter.transform.position;
-                pos.x = b.max.x + b.size.x * 0.2f;
-                counter.transform.position = pos;
-            } catch (System.Exception e) {
+                    pos = sprite.transform.localPosition;
+                    pos.x = Mathf.Ceil(pos.x * 3f) / 3f;
+                    sprite.transform.localPosition = pos;
+                }
+                else {
+                    var b = grassSprite.GetComponent<Renderer>().bounds;
+                    var b2 = sprite.GetComponent<Renderer>().bounds;
+
+                    var pos = sprite.transform.position;
+                    pos.x = b.center.x - b2.size.x * 0.5f;
+                    pos.y = b.min.y - b.size.y * 0.7f;
+                    sprite.transform.position = pos;
+                }
+
+                {
+                    var b = sprite.GetComponent<Renderer>().bounds;
+                    var pos = counter.transform.position;
+                    pos.x = b.max.x + b.size.x * 0.2f;
+                    pos.y = b.min.y + b.size.y * 0.4f;
+                    counter.transform.position = pos;
+                }
+            } 
+            catch (System.Exception e) {
                 LumaflyKnight.Instance.Log("Error in Ui.Update()"  + e);
             }
         }

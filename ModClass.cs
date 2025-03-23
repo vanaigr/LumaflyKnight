@@ -479,7 +479,7 @@ namespace LumaflyKnight {
             }
         }
 
-        public override string GetVersion() => "10";
+        public override string GetVersion() => "11";
 
         static bool loadedItems;
         // they are (and must be) set to default values if not loaded normally
