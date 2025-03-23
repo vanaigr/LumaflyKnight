@@ -36,3 +36,7 @@ All config options mentioned above are also available in the in-game menu at Opt
 To check which lumaflies remain, you can upload the `user`#`.modded.json` (located in the dame directory as your save file) to https://vanaigr.github.io/LumaflyMap
 
 Loosely based on [GrassyKnight](https://github.com/itsjohncs/GrassyKnight).
+
+Lumafly locations are extracted from this version of the game:
+
+![image](https://github.com/user-attachments/assets/641d3c8f-6cd8-40ea-b99c-a8ce0aeb5055)
