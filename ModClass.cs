@@ -3,7 +3,7 @@
 //#define EXTRACT
 
 // for debugging
-//#define TEST
+#define TEST
 
 using Modding;
 using System;
@@ -43,7 +43,8 @@ namespace LumaflyKnight {
         public bool countChandelier = true;
         public bool countSeerAssension = true;
         public bool spawnLumaflies = true;
-    }
+        public bool lumaflyLantern = true;
+	}
 
     public partial class LumaflyKnight : Mod, IMenuMod, ILocalSettings<DoneItems>, IGlobalSettings<GlobalSettings> {
         internal static LumaflyKnight Instance;
@@ -58,7 +59,7 @@ namespace LumaflyKnight {
         public MethodInfo partsActivation = typeof(Breakable).GetMethod("SetStaticPartsActivation", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         public FieldInfo isBroken = typeof(Breakable).GetField("isBroken", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-        public GameObject findInHierarchy(GameObject o, string[] names, int beginI) {
+        public static GameObject findInHierarchy(GameObject o, string[] names, int beginI) {
             if(beginI >= names.Length) return o;
             string name = names[beginI];
             var ct = o.transform.Find(name);
@@ -67,7 +68,7 @@ namespace LumaflyKnight {
         }
 
         // 1. Searches inactive as well. 2. Can specify scene
-        public GameObject find2(Scene s, string path) {
+        public static GameObject find2(Scene s, string path) {
             if(path[0] != '/') throw new Exception("Not absolute path");
             var names = path.Split('/');
             if(names.Length <= 1) return null;
@@ -110,11 +111,15 @@ namespace LumaflyKnight {
             var s = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             var sname = s.name;
 
+            Log(sname);
+
             Dictionary<string, Type> objTypes;
             if(!data.itemType.TryGetValue(s.name, out objTypes)) {
+                Log("  has no items");
                 Ui.getUi()?.UpdateStats(0, 0, data.totalHit, data.totalCount);
                 return;
             }
+            Log("  has " + objTypes.Count + " items");
 
             var hitCount = 0;
             var possibleCount = 0;
@@ -128,6 +133,25 @@ namespace LumaflyKnight {
                 possibleCount += increase;
 
                 try {
+                    if(type == 7) {
+                        var checkObj = new GameObject("LumaflyKnight Ending Checker", typeof(EndingChecker));
+                        var checker = checkObj.AddComponent<EndingChecker>();
+
+                        checker.path = path;
+                        checker.scene = s;
+                        checker.type = typ;
+                        checker.onEnd += (_, args) => {
+                            if(data.add(sname, path, typ)) {
+                                hitCount += increase;
+                                Ui.getUi()?.UpdateStats(hitCount, possibleCount, data.totalHit, data.totalCount);
+                                if(globalSettings.spawnLumaflies) {
+                                    showEffect(args.obj.transform.position);
+                                }
+                            }
+                        };
+                        continue;
+                    }
+
                     var obj = find2(s, path);
 
                     if(data.has(sname, path)) {
@@ -280,7 +304,11 @@ namespace LumaflyKnight {
         // should be changed to just "/Dream Moth" but it's now used in several places and in save files
         static string seer = "/Dream Moth/Dream Dialogue";
 
-        public struct LampData {
+        public static string lanternReleaseScene = "Dream_Final_Boss";
+        public static string lanternRelease = "/hollow_knight_skull_left";
+
+
+		public struct LampData {
             public string brk; // path to GameObject with Breakable. Empty string if none
             public int count; // number of lumaflies in a lamp
         }
@@ -299,7 +327,8 @@ namespace LumaflyKnight {
             // BREAKABLE walls
             public Dictionary<string, LampData> lampsOnWalls;
             public SpecialData seer;
-        }
+            public SpecialData lantern;
+		}
 
         public struct Type {
             public int type; // 0 - lamps, 1 - enemies, etc.
@@ -535,7 +564,21 @@ namespace LumaflyKnight {
                         totalCount += countIncrease(data);
                         res.Add(seer, data);
                     }
-                } catch(Exception e) {
+
+					if (globalSettings.lumaflyLantern)
+					{
+						Dictionary<string, Type> res;
+						if (!itemType.TryGetValue(lanternReleaseScene, out res))
+						{
+							res = new Dictionary<string, Type>();
+							itemType.Add(lanternReleaseScene, res);
+						}
+
+						var data = new Type { type = 7, data = new SpecialData { } };
+						totalCount += countIncrease(data);
+						res.Add(LumaflyKnight.lanternRelease, data);
+					}
+				} catch(Exception e) {
                     LogError("Died: " + e);
                 }
 
@@ -770,6 +813,25 @@ namespace LumaflyKnight {
     class ReleaseLumaflyOnDestroy : MonoBehaviour { 
         public void OnDestroy() {
             LumaflyKnight.showEffect(gameObject.transform.position);
+        }
+    }
+
+    class EndingChecker : MonoBehaviour {
+        public string path;
+        public Scene scene;
+        public LumaflyKnight.Type type;
+        public event EventHandler<EndArgs> onEnd;
+
+        public class EndArgs : EventArgs {
+            public GameObject obj;
+        }
+
+        public void Update() {
+            var obj = LumaflyKnight.find2(scene, path);
+            if(!obj) return;
+            if(!obj.activeInHierarchy) return;
+            if(!PlayerData.instance.hasLantern) return;
+            onEnd?.Invoke(this, new EndArgs { obj = obj });
         }
     }
 
